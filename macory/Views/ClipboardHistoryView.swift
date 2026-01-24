@@ -12,6 +12,7 @@ struct ClipboardHistoryView: View {
     @ObservedObject var viewModel: HistoryViewModel
     var onSelect: (ClipboardItem) -> Void
     var onDelete: (ClipboardItem) -> Void
+    var onPin: (ClipboardItem) -> Void
     
     // Compute filtered items here to ensure view updates when manager updates
     var filteredItems: [ClipboardItem] {
@@ -64,8 +65,8 @@ struct ClipboardHistoryView: View {
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Clear All")
-                    .disabled(clipboardManager.items.isEmpty)
+                    .help("Clear All (keeps pinned)")
+                    .disabled(clipboardManager.items.filter { !$0.isPinned }.isEmpty)
                 }
                 .padding(10)
                 .background(Color(NSColor.controlBackgroundColor))
@@ -105,7 +106,8 @@ struct ClipboardHistoryView: View {
                                     item: item,
                                     isSelected: index == viewModel.selectionIndex,
                                     onSelect: { onSelect(item) },
-                                    onDelete: { onDelete(item) }
+                                    onDelete: { onDelete(item) },
+                                    onPin: { onPin(item) }
                                 )
                                 .id(index) // Use index for scrolling
                             }
@@ -129,7 +131,7 @@ struct ClipboardHistoryView: View {
             HStack {
                 Text(viewModel.searchText.isEmpty ? "\(clipboardManager.items.count) items" : "\(filteredItems.count) results")
                 Spacer()
-                Text("↑↓ select  ⏎ paste  ⌘⌫ delete")
+                Text("↑↓ select  ⏎ paste  ⌘P pin  ⌘⌫ delete")
             }
             .font(.system(size: 10, weight: .medium))
             .foregroundColor(.secondary)
@@ -166,6 +168,7 @@ struct ClipboardItemRow: View {
     let isSelected: Bool
     var onSelect: () -> Void
     var onDelete: () -> Void
+    var onPin: () -> Void
     
     @State private var isHovered = false
     
@@ -177,9 +180,9 @@ struct ClipboardItemRow: View {
                     .fill(isSelected ? Color.white.opacity(0.2) : Color.gray.opacity(0.1))
                     .frame(width: 28, height: 28)
                 
-                Image(systemName: "text.alignleft")
+                Image(systemName: item.isPinned ? "pin.fill" : "text.alignleft")
                     .font(.system(size: 12))
-                    .foregroundColor(isSelected ? .white : .secondary)
+                    .foregroundColor(item.isPinned ? .yellow : (isSelected ? .white : .secondary))
             }
             
             VStack(alignment: .leading, spacing: 3) {
@@ -195,17 +198,30 @@ struct ClipboardItemRow: View {
             
             Spacer()
             
-            if isHovered || isSelected {
-                Button(action: onDelete) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
-                        .padding(6)
-                        .background(isSelected ? Color.white.opacity(0.2) : Color.gray.opacity(0.1))
-                        .clipShape(Circle())
+            if isHovered || isSelected || item.isPinned {
+                HStack(spacing: 4) {
+                    Button(action: onPin) {
+                        Image(systemName: item.isPinned ? "pin.slash.fill" : "pin.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(item.isPinned ? .yellow : (isSelected ? .white.opacity(0.8) : .secondary))
+                            .padding(6)
+                            .background(isSelected ? Color.white.opacity(0.2) : Color.gray.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(item.isPinned ? "Unpin (⌘P)" : "Pin (⌘P)")
+                    
+                    Button(action: onDelete) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                            .padding(6)
+                            .background(isSelected ? Color.white.opacity(0.2) : Color.gray.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Delete (⌘⌫)")
                 }
-                .buttonStyle(.plain)
-                .help("Delete (⌘⌫)")
             }
         }
         .padding(.horizontal, 8)
@@ -228,6 +244,7 @@ struct ClipboardItemRow: View {
     ClipboardHistoryView(
         viewModel: HistoryViewModel(),
         onSelect: { _ in },
-        onDelete: { _ in }
+        onDelete: { _ in },
+        onPin: { _ in }
     )
 }

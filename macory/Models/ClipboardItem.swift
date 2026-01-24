@@ -11,11 +11,13 @@ struct ClipboardItem: Identifiable, Equatable, Codable {
     let id: UUID
     let content: String
     let timestamp: Date
+    var isPinned: Bool
     
-    init(id: UUID = UUID(), content: String, timestamp: Date = Date()) {
+    init(id: UUID = UUID(), content: String, timestamp: Date = Date(), isPinned: Bool = false) {
         self.id = id
         self.content = content
         self.timestamp = timestamp
+        self.isPinned = isPinned
     }
     
     var displayText: String {

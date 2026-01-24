@@ -129,6 +129,9 @@ class FloatingPanelController: NSObject {
             onDelete: { [weak self] item in
                 // We need to pass the original item, but deleteItem expects it
                 self?.deleteItem(item)
+            },
+            onPin: { [weak self] item in
+                self?.togglePin(item)
             }
         )
         
@@ -237,6 +240,15 @@ class FloatingPanelController: NSObject {
                 }
                 return nil // Consume event
                 
+            case 35: // Command+P for toggle pin
+                if event.modifierFlags.contains(.command) {
+                     if self.viewModel.selectionIndex >= 0 && self.viewModel.selectionIndex < filtered.count {
+                        self.togglePin(filtered[self.viewModel.selectionIndex])
+                        return nil
+                    }
+                }
+                return event
+                
             case 51: // Delete/Backspace
                 // Should only delete if not editing text field?
                 // Actually backspace is needed for search bar.
@@ -284,7 +296,6 @@ class FloatingPanelController: NSObject {
     }
     
     private func deleteItem(_ item: ClipboardItem) {
-        let items = ClipboardManager.shared.items
         ClipboardManager.shared.deleteItem(item)
         
         // Re-calculate filtered list size to adjust selection if needed
@@ -292,5 +303,9 @@ class FloatingPanelController: NSObject {
         if viewModel.selectionIndex >= filtered.count && viewModel.selectionIndex > 0 {
             viewModel.selectionIndex -= 1
         }
+    }
+    
+    private func togglePin(_ item: ClipboardItem) {
+        ClipboardManager.shared.togglePin(item)
     }
 }
