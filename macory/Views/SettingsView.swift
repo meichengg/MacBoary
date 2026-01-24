@@ -14,99 +14,93 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("Settings")
-                    .font(.headline)
-                Spacer()
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding()
-            .background(Color(NSColor.windowBackgroundColor))
-            
-            Divider()
-            
-            Form {
-                Section {
-                    Toggle("Show in Dock", isOn: $settingsManager.showDockIcon)
-                    Text("When disabled, Macory runs as a menu bar only app")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Picker("Popup Position", selection: $settingsManager.popupPosition) {
-                        ForEach(PopupPosition.allCases, id: \.self) { position in
-                            Text(position.displayName).tag(position)
-                        }
+        Form {
+            Section {
+                Toggle(isOn: $settingsManager.showDockIcon) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show in Dock")
+                        Text("If disabled, app runs in menu bar only")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    .pickerStyle(.menu)
-                } header: {
-                    Label("Appearance", systemImage: "paintbrush")
                 }
                 
-                Section {
-                    HStack {
+                Picker("Popup Position", selection: $settingsManager.popupPosition) {
+                    ForEach(PopupPosition.allCases, id: \.self) { position in
+                        Text(position.displayName).tag(position)
+                    }
+                }
+            } header: {
+                Label("Appearance", systemImage: "paintbrush")
+            }
+            
+            Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Global Hotkey")
-                        Spacer()
-                        Button(action: {
-                            isRecordingShortcut = true
-                        }) {
-                            Text(isRecordingShortcut ? "Press keys..." : settingsManager.shortcut.displayString)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(isRecordingShortcut ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.1))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(isRecordingShortcut ? Color.accentColor : Color.clear, lineWidth: 2)
-                                )
+                        Button("Reset to Default (⌘⇧V)") {
+                            settingsManager.shortcut = GlobalKeyboardShortcut.defaultShortcut
+                            NotificationCenter.default.post(name: .shortcutChanged, object: nil)
                         }
-                        .buttonStyle(.plain)
-                    }
-                    
-                    Text("Click to change the keyboard shortcut")
+                        .buttonStyle(.link)
                         .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Button("Reset to Default (⌘⇧V)") {
-                        settingsManager.shortcut = GlobalKeyboardShortcut.defaultShortcut
-                        NotificationCenter.default.post(name: .shortcutChanged, object: nil)
-                    }
-                    .font(.caption)
-                } header: {
-                    Label("Keyboard", systemImage: "keyboard")
-                }
-                
-                Section {
-                    HStack {
-                        Text("Accessibility")
-                        Spacer()
-                        if PermissionManager.shared.hasAccessibilityPermission {
-                            Label("Granted", systemImage: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                        } else {
-                            Button("Grant Access") {
-                                PermissionManager.shared.openAccessibilityPreferences()
-                            }
-                        }
+                        .controlSize(.mini)
                     }
                     
-                    Text("Required for global hotkey and pasting")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } header: {
-                    Label("Permissions", systemImage: "lock.shield")
+                    Spacer()
+                    
+                    Button(action: {
+                        isRecordingShortcut = true
+                    }) {
+                        Text(isRecordingShortcut ? "Rec..." : settingsManager.shortcut.displayString)
+                            .lineLimit(1)
+                            .frame(minWidth: 80, alignment: .center)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(isRecordingShortcut ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.1))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(isRecordingShortcut ? Color.accentColor : Color.clear, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
+            } header: {
+                Label("Keyboard", systemImage: "keyboard")
             }
-            .formStyle(.grouped)
+            
+            Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Accessibility Access")
+                        Text("Required for global hotkey and pasting")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    if PermissionManager.shared.hasAccessibilityPermission {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Granted")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    } else {
+                        Button("Grant Access") {
+                            PermissionManager.shared.openAccessibilityPreferences()
+                        }
+                    }
+                }
+            } header: {
+                Label("Permissions", systemImage: "lock.shield")
+            }
         }
-        .frame(width: 400, height: 400)
+        .formStyle(.grouped)
+        .frame(width: 400, height: 500)
         .background(
             ShortcutRecorderView(
                 isRecording: $isRecordingShortcut,

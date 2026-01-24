@@ -61,11 +61,6 @@ struct AboutView: View {
             Text("© 2026 Marco Baeuml")
                 .font(.caption2)
                 .foregroundColor(.secondary)
-            
-            Button("Close") {
-                dismiss()
-            }
-            .keyboardShortcut(.cancelAction)
         }
         .padding(30)
         .frame(width: 300, height: 350)
