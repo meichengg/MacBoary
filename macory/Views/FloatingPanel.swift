@@ -36,24 +36,33 @@ class FloatingPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-// Separate observable class for selection state
-class SelectionState: ObservableObject {
-    @Published var index: Int = 0
+// Separate observable class for selection and search state
+class HistoryViewModel: ObservableObject {
+    @Published var selectionIndex: Int = 0
+    @Published var searchText: String = "" {
+        didSet {
+            // Reset selection when search changes
+            if oldValue != searchText {
+                selectionIndex = 0
+            }
+        }
+    }
     
     func moveUp() {
-        if index > 0 {
-            index -= 1
+        if selectionIndex > 0 {
+            selectionIndex -= 1
         }
     }
     
     func moveDown(maxIndex: Int) {
-        if index < maxIndex {
-            index += 1
+        if selectionIndex < maxIndex {
+            selectionIndex += 1
         }
     }
     
     func reset() {
-        index = 0
+        selectionIndex = 0
+        searchText = ""
     }
 }
 
@@ -64,7 +73,7 @@ class FloatingPanelController: NSObject {
     private var previousApp: NSRunningApplication?
     private var hostingView: NSHostingView<AnyView>?
     
-    let selectionState = SelectionState()
+    let viewModel = HistoryViewModel()
     var isVisible = false
     
     private var eventMonitor: Any?
@@ -74,12 +83,22 @@ class FloatingPanelController: NSObject {
         super.init()
     }
     
+    private var filteredItems: [ClipboardItem] {
+        let items = ClipboardManager.shared.items
+        if viewModel.searchText.isEmpty {
+            return items
+        }
+        return items.filter { item in
+            item.content.localizedCaseInsensitiveContains(viewModel.searchText)
+        }
+    }
+    
     func showPanel() {
         // Store the currently active app before showing panel
         previousApp = NSWorkspace.shared.frontmostApplication
         
         // Reset selection
-        selectionState.reset()
+        viewModel.reset()
         
         // Create panel if needed
         if panel == nil {
@@ -103,11 +122,12 @@ class FloatingPanelController: NSObject {
         panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 450))
         
         let historyView = ClipboardHistoryView(
-            selectionState: selectionState,
+            viewModel: viewModel,
             onSelect: { [weak self] item in
                 self?.selectItem(item)
             },
             onDelete: { [weak self] item in
+                // We need to pass the original item, but deleteItem expects it
                 self?.deleteItem(item)
             }
         )
@@ -193,7 +213,10 @@ class FloatingPanelController: NSObject {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self, self.isVisible else { return event }
             
-            let items = ClipboardManager.shared.items
+            // Allow typing in search field (don't capture if it's a character key, unless modifiers)
+            // But we need to capture navigation keys
+            
+            let filtered = self.filteredItems
             
             switch event.keyCode {
             case 53: // Escape
@@ -201,24 +224,36 @@ class FloatingPanelController: NSObject {
                 return nil // Consume event
                 
             case 126: // Up arrow
-                self.selectionState.moveUp()
+                self.viewModel.moveUp()
                 return nil // Consume event
                 
             case 125: // Down arrow
-                self.selectionState.moveDown(maxIndex: items.count - 1)
+                self.viewModel.moveDown(maxIndex: filtered.count - 1)
                 return nil // Consume event
                 
             case 36: // Return/Enter
-                if self.selectionState.index >= 0 && self.selectionState.index < items.count {
-                    self.selectItem(items[self.selectionState.index])
+                if self.viewModel.selectionIndex >= 0 && self.viewModel.selectionIndex < filtered.count {
+                    self.selectItem(filtered[self.viewModel.selectionIndex])
                 }
                 return nil // Consume event
                 
             case 51: // Delete/Backspace
-                if self.selectionState.index >= 0 && self.selectionState.index < items.count {
-                    self.deleteItem(items[self.selectionState.index])
+                // Should only delete if not editing text field?
+                // Actually backspace is needed for search bar.
+                // We should only handle backspace as "Delete Item" if command is pressed or if search is empty?
+                // Standard behavior for these apps: Cmd+Backspace to delete item, Backspace filters.
+                // Or: Backspace deletes text, if text empty and item selected... maybe not.
+                // User requirement: "delete entries with backspace works"
+                // If we add search, backspace MUST edit text.
+                // Let's change item deletion to Cmd+Backspace or Fn+Backspace (Suppr)
+                // For now, let's let Backspace go through to the text field unless modifier is pressed.    
+                if event.modifierFlags.contains(.command) {
+                    if self.viewModel.selectionIndex >= 0 && self.viewModel.selectionIndex < filtered.count {
+                        self.deleteItem(filtered[self.viewModel.selectionIndex])
+                        return nil
+                    }
                 }
-                return nil // Consume event
+                 return event
                 
             default:
                 return event // Pass other keys through
@@ -249,12 +284,13 @@ class FloatingPanelController: NSObject {
     }
     
     private func deleteItem(_ item: ClipboardItem) {
-        let itemCount = ClipboardManager.shared.items.count
+        let items = ClipboardManager.shared.items
         ClipboardManager.shared.deleteItem(item)
         
-        // Adjust selection if needed
-        if selectionState.index >= itemCount - 1 && selectionState.index > 0 {
-            selectionState.index -= 1
+        // Re-calculate filtered list size to adjust selection if needed
+        let filtered = self.filteredItems
+        if viewModel.selectionIndex >= filtered.count && viewModel.selectionIndex > 0 {
+            viewModel.selectionIndex -= 1
         }
     }
 }

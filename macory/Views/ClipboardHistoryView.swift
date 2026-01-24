@@ -9,62 +9,114 @@ import SwiftUI
 
 struct ClipboardHistoryView: View {
     @ObservedObject var clipboardManager = ClipboardManager.shared
-    @ObservedObject var selectionState: SelectionState
+    @ObservedObject var viewModel: HistoryViewModel
     var onSelect: (ClipboardItem) -> Void
     var onDelete: (ClipboardItem) -> Void
     
+    // Compute filtered items here to ensure view updates when manager updates
+    var filteredItems: [ClipboardItem] {
+        if viewModel.searchText.isEmpty {
+            return clipboardManager.items
+        }
+        return clipboardManager.items.filter {
+            $0.content.localizedCaseInsensitiveContains(viewModel.searchText)
+        }
+    }
+    
+    // Focus state for search field
+    @FocusState private var isSearchFocused: Bool
+    
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: "doc.on.clipboard")
-                    .foregroundColor(.secondary)
-                Text("Clipboard History")
-                    .font(.headline)
-                Spacer()
-                Text("\(clipboardManager.items.count) items")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            // Header with Search
+            VStack(spacing: 8) {
+                // Search Bar
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    
+                    TextField("Search history...", text: $viewModel.searchText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14))
+                        .focused($isSearchFocused)
+                        .onAppear {
+                            // Auto focus when created
+                            isSearchFocused = true
+                        }
+                    
+                    if !viewModel.searchText.isEmpty {
+                        Button(action: {
+                            viewModel.searchText = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    Divider()
+                        .frame(height: 16)
+                    
+                    Button(action: {
+                        clipboardManager.clearHistory()
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear All")
+                    .disabled(clipboardManager.items.isEmpty)
+                }
+                .padding(10)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                )
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(12)
             .background(Color(NSColor.windowBackgroundColor))
             
             Divider()
             
-            if clipboardManager.items.isEmpty {
+            if filteredItems.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "clipboard")
+                    Image(systemName: viewModel.searchText.isEmpty ? "clipboard" : "magnifyingglass")
                         .font(.system(size: 40))
+                        .foregroundColor(.secondary.opacity(0.5))
+                    Text(viewModel.searchText.isEmpty ? "No clipboard history" : "No results found")
+                        .font(.headline)
                         .foregroundColor(.secondary)
-                    Text("No clipboard history")
-                        .foregroundColor(.secondary)
-                    Text("Copy something to get started")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if viewModel.searchText.isEmpty {
+                        Text("Copy something to get started")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
+                .background(Color.clear) // Transparent list background
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(spacing: 1) {
-                            ForEach(Array(clipboardManager.items.enumerated()), id: \.element.id) { index, item in
+                        VStack(spacing: 4) {
+                            ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
                                 ClipboardItemRow(
                                     item: item,
-                                    isSelected: index == selectionState.index,
+                                    isSelected: index == viewModel.selectionIndex,
                                     onSelect: { onSelect(item) },
                                     onDelete: { onDelete(item) }
                                 )
-                                .id(item.id) // Use item.id for proper view identity
+                                .id(index) // Use index for scrolling
                             }
                         }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 8)
                     }
-                    .onChange(of: selectionState.index) { _, newIndex in
-                        if newIndex >= 0 && newIndex < clipboardManager.items.count {
+                    .onChange(of: viewModel.selectionIndex) { _, newIndex in
+                        if newIndex >= 0 && newIndex < filteredItems.count {
                             withAnimation(.easeInOut(duration: 0.1)) {
-                                proxy.scrollTo(clipboardManager.items[newIndex].id, anchor: .center)
+                                proxy.scrollTo(newIndex, anchor: .center)
                             }
                         }
                     }
@@ -75,19 +127,37 @@ struct ClipboardHistoryView: View {
             
             // Footer
             HStack {
-                Text("↑↓ Navigate")
-                Text("⏎ Paste")
-                Text("⌫ Delete")
-                Text("⎋ Close")
+                Text(viewModel.searchText.isEmpty ? "\(clipboardManager.items.count) items" : "\(filteredItems.count) results")
+                Spacer()
+                Text("↑↓ select  ⏎ paste  ⌘⌫ delete")
             }
-            .font(.caption2)
+            .font(.system(size: 10, weight: .medium))
             .foregroundColor(.secondary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(width: 400, height: 450)
-        .background(Color(NSColor.controlBackgroundColor))
+        .frame(width: 400, height: 500)
+        .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
+    }
+}
+
+// Background blur effect
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+    
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let visualEffectView = NSVisualEffectView()
+        visualEffectView.material = material
+        visualEffectView.blendingMode = blendingMode
+        visualEffectView.state = .active
+        return visualEffectView
+    }
+    
+    func updateNSView(_ visualEffectView: NSVisualEffectView, context: Context) {
+        visualEffectView.material = material
+        visualEffectView.blendingMode = blendingMode
     }
 }
 
@@ -100,15 +170,26 @@ struct ClipboardItemRow: View {
     @State private var isHovered = false
     
     var body: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 10) {
+            // Type Icon
+            ZStack {
+                Circle()
+                    .fill(isSelected ? Color.white.opacity(0.2) : Color.gray.opacity(0.1))
+                    .frame(width: 28, height: 28)
+                
+                Image(systemName: "text.alignleft")
+                    .font(.system(size: 12))
+                    .foregroundColor(isSelected ? .white : .secondary)
+            }
+            
+            VStack(alignment: .leading, spacing: 3) {
                 Text(item.displayText)
-                    .font(.system(size: 13))
-                    .lineLimit(2)
+                    .font(.system(size: 13, weight: .regular))
+                    .lineLimit(1)
                     .foregroundColor(isSelected ? .white : .primary)
                 
                 Text(item.timeAgo)
-                    .font(.caption2)
+                    .font(.system(size: 10))
                     .foregroundColor(isSelected ? .white.opacity(0.7) : .secondary)
             }
             
@@ -116,20 +197,23 @@ struct ClipboardItemRow: View {
             
             if isHovered || isSelected {
                 Button(action: onDelete) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(isSelected ? .white.opacity(0.7) : .secondary)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                        .padding(6)
+                        .background(isSelected ? Color.white.opacity(0.2) : Color.gray.opacity(0.1))
+                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help("Delete")
+                .help("Delete (⌘⌫)")
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor : (isHovered ? Color.secondary.opacity(0.1) : Color.clear))
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isSelected ? Color.accentColor : (isHovered ? Color.secondary.opacity(0.05) : Color.clear))
         )
-        .padding(.horizontal, 4)
         .contentShape(Rectangle())
         .onTapGesture {
             onSelect()
@@ -142,7 +226,7 @@ struct ClipboardItemRow: View {
 
 #Preview {
     ClipboardHistoryView(
-        selectionState: SelectionState(),
+        viewModel: HistoryViewModel(),
         onSelect: { _ in },
         onDelete: { _ in }
     )
