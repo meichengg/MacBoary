@@ -29,6 +29,8 @@ class SettingsManager: ObservableObject {
     private let quickPasteEnabledKey = "quickPasteEnabled"
     private let showPinButtonKey = "showPinButton"
     private let storeImagesKey = "storeImages"
+    private let textRetentionDaysKey = "textRetentionDays"
+    private let imageRetentionDaysKey = "imageRetentionDays"
     
     @Published var showDockIcon: Bool {
         didSet {
@@ -55,6 +57,18 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var textRetentionDays: Int {
+        didSet {
+            UserDefaults.standard.set(textRetentionDays, forKey: textRetentionDaysKey)
+        }
+    }
+    
+    @Published var imageRetentionDays: Int {
+        didSet {
+            UserDefaults.standard.set(imageRetentionDays, forKey: imageRetentionDaysKey)
+        }
+    }
+    
     @Published var shortcut: GlobalKeyboardShortcut {
         didSet {
             if let encoded = try? JSONEncoder().encode(shortcut) {
@@ -74,6 +88,8 @@ class SettingsManager: ObservableObject {
         self.quickPasteEnabled = UserDefaults.standard.object(forKey: quickPasteEnabledKey) as? Bool ?? true
         self.showPinButton = UserDefaults.standard.object(forKey: showPinButtonKey) as? Bool ?? true
         self.storeImages = UserDefaults.standard.object(forKey: storeImagesKey) as? Bool ?? true
+        self.textRetentionDays = UserDefaults.standard.object(forKey: textRetentionDaysKey) as? Int ?? 7
+        self.imageRetentionDays = UserDefaults.standard.object(forKey: imageRetentionDaysKey) as? Int ?? 1
         
         if let data = UserDefaults.standard.data(forKey: shortcutKey),
            let decoded = try? JSONDecoder().decode(GlobalKeyboardShortcut.self, from: data) {

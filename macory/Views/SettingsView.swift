@@ -46,6 +46,24 @@ struct SettingsView: View {
             }
             
             Section {
+                Picker("Text History", selection: $settingsManager.textRetentionDays) {
+                    Text("1 Day").tag(1)
+                    Text("3 Days").tag(3)
+                    Text("7 Days").tag(7)
+                    Text("30 Days").tag(30)
+                }
+                
+                Picker("Image History", selection: $settingsManager.imageRetentionDays) {
+                    Text("1 Day").tag(1)
+                    Text("3 Days").tag(3)
+                    Text("7 Days").tag(7)
+                    Text("30 Days").tag(30)
+                }
+            } header: {
+                Label("History", systemImage: "clock")
+            }
+            
+            Section {
                 Toggle(isOn: $settingsManager.quickPasteEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Enable Quick Paste Shortcuts")

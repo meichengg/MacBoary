@@ -21,6 +21,7 @@ class ClipboardManager: ObservableObject {
     
     private init() {
         loadHistory()
+        cleanupOldItems()
         startMonitoring()
     }
     
@@ -218,6 +219,38 @@ class ClipboardManager: ObservableObject {
         saveHistory()
     }
     
+    private func cleanupOldItems() {
+        let textDays = SettingsManager.shared.textRetentionDays
+        let imageDays = SettingsManager.shared.imageRetentionDays
+        
+        let now = Date()
+        let textCutoff = Calendar.current.date(byAdding: .day, value: -textDays, to: now) ?? now
+        let imageCutoff = Calendar.current.date(byAdding: .day, value: -imageDays, to: now) ?? now
+        
+        var itemsToDelete: [ClipboardItem] = []
+        
+        items.removeAll { item in
+            if item.isPinned { return false }
+            
+            let cutoff = item.type == .image ? imageCutoff : textCutoff
+            if item.timestamp < cutoff {
+                itemsToDelete.append(item)
+                return true
+            }
+            return false
+        }
+        
+        for item in itemsToDelete {
+            if let imagePath = item.imagePath {
+                deleteImage(named: imagePath)
+            }
+        }
+        
+        if !itemsToDelete.isEmpty {
+            saveHistory()
+        }
+    }
+
     private func saveHistory() {
         if let encoded = try? JSONEncoder().encode(items) {
             UserDefaults.standard.set(encoded, forKey: storageKey)
