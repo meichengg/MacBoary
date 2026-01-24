@@ -50,7 +50,6 @@ struct AboutView: View {
             // Description
             VStack(spacing: 8) {
                 Text("A lightweight clipboard history manager")
-                Text("for macOS, inspired by Windows 10/11")
             }
             .font(.caption)
             .foregroundColor(.secondary)
