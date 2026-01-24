@@ -46,14 +46,14 @@ struct SettingsView: View {
             }
             
             Section {
-                Picker("Text History", selection: $settingsManager.textRetentionDays) {
+                Picker("Keep text history for", selection: $settingsManager.textRetentionDays) {
                     Text("1 Day").tag(1)
                     Text("3 Days").tag(3)
                     Text("7 Days").tag(7)
                     Text("30 Days").tag(30)
                 }
                 
-                Picker("Image History", selection: $settingsManager.imageRetentionDays) {
+                Picker("Keep image history for", selection: $settingsManager.imageRetentionDays) {
                     Text("1 Day").tag(1)
                     Text("3 Days").tag(3)
                     Text("7 Days").tag(7)
@@ -123,7 +123,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 400, height: 500)
+        .frame(width: 400, height: 600)
     }
 }
 
