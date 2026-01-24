@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ClipboardHistoryView: View {
     @ObservedObject var clipboardManager = ClipboardManager.shared
-    @Binding var selectedIndex: Int
+    @ObservedObject var selectionState: SelectionState
     var onSelect: (ClipboardItem) -> Void
     var onDelete: (ClipboardItem) -> Void
     
@@ -48,20 +48,20 @@ struct ClipboardHistoryView: View {
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 1) {
+                        VStack(spacing: 1) {
                             ForEach(Array(clipboardManager.items.enumerated()), id: \.element.id) { index, item in
                                 ClipboardItemRow(
                                     item: item,
-                                    isSelected: index == selectedIndex,
+                                    isSelected: index == selectionState.index,
                                     onSelect: { onSelect(item) },
                                     onDelete: { onDelete(item) }
                                 )
-                                .id(item.id)
+                                .id(item.id) // Use item.id for proper view identity
                             }
                         }
                         .padding(.vertical, 4)
                     }
-                    .onChange(of: selectedIndex) { _, newIndex in
+                    .onChange(of: selectionState.index) { _, newIndex in
                         if newIndex >= 0 && newIndex < clipboardManager.items.count {
                             withAnimation(.easeInOut(duration: 0.1)) {
                                 proxy.scrollTo(clipboardManager.items[newIndex].id, anchor: .center)
@@ -142,7 +142,7 @@ struct ClipboardItemRow: View {
 
 #Preview {
     ClipboardHistoryView(
-        selectedIndex: .constant(0),
+        selectionState: SelectionState(),
         onSelect: { _ in },
         onDelete: { _ in }
     )

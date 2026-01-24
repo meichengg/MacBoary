@@ -7,6 +7,7 @@
 
 import AppKit
 import SwiftUI
+import Combine
 
 class FloatingPanel: NSPanel {
     init(contentRect: NSRect) {
@@ -27,7 +28,7 @@ class FloatingPanel: NSPanel {
         
         // Don't show in dock or app switcher
         self.hidesOnDeactivate = false
-        self.becomesKeyOnlyIfNeeded = true
+        self.becomesKeyOnlyIfNeeded = false // Changed to false to always accept key
     }
     
     // Allow the panel to become key without activating the app
@@ -35,13 +36,36 @@ class FloatingPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-class FloatingPanelController: NSObject, ObservableObject {
+// Separate observable class for selection state
+class SelectionState: ObservableObject {
+    @Published var index: Int = 0
+    
+    func moveUp() {
+        if index > 0 {
+            index -= 1
+        }
+    }
+    
+    func moveDown(maxIndex: Int) {
+        if index < maxIndex {
+            index += 1
+        }
+    }
+    
+    func reset() {
+        index = 0
+    }
+}
+
+class FloatingPanelController: NSObject {
     static let shared = FloatingPanelController()
     
     private var panel: FloatingPanel?
     private var previousApp: NSRunningApplication?
-    @Published var selectedIndex: Int = 0
-    @Published var isVisible = false
+    private var hostingView: NSHostingView<AnyView>?
+    
+    let selectionState = SelectionState()
+    var isVisible = false
     
     private var eventMonitor: Any?
     private var keyMonitor: Any?
@@ -54,42 +78,46 @@ class FloatingPanelController: NSObject, ObservableObject {
         // Store the currently active app before showing panel
         previousApp = NSWorkspace.shared.frontmostApplication
         
+        // Reset selection
+        selectionState.reset()
+        
         // Create panel if needed
         if panel == nil {
-            panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 450))
-            
-            let historyView = ClipboardHistoryView(
-                selectedIndex: Binding(
-                    get: { self.selectedIndex },
-                    set: { self.selectedIndex = $0 }
-                ),
-                onSelect: { [weak self] item in
-                    self?.selectItem(item)
-                },
-                onDelete: { [weak self] item in
-                    self?.deleteItem(item)
-                }
-            )
-            
-            let hostingView = NSHostingView(rootView: historyView)
-            hostingView.layer?.cornerRadius = 12
-            hostingView.layer?.masksToBounds = true
-            
-            panel?.contentView = hostingView
+            createPanel()
         }
         
         // Position near mouse
         positionPanelNearMouse()
         
-        // Show panel
+        // Show panel and make it key
         panel?.orderFrontRegardless()
         panel?.makeKey()
         
-        selectedIndex = 0
         isVisible = true
         
         // Start monitoring for clicks outside and keyboard
         startEventMonitoring()
+    }
+    
+    private func createPanel() {
+        panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 450))
+        
+        let historyView = ClipboardHistoryView(
+            selectionState: selectionState,
+            onSelect: { [weak self] item in
+                self?.selectItem(item)
+            },
+            onDelete: { [weak self] item in
+                self?.deleteItem(item)
+            }
+        )
+        
+        let wrappedView = AnyView(historyView)
+        hostingView = NSHostingView(rootView: wrappedView)
+        hostingView?.layer?.cornerRadius = 12
+        hostingView?.layer?.masksToBounds = true
+        
+        panel?.contentView = hostingView
     }
     
     func hidePanel() {
@@ -146,10 +174,40 @@ class FloatingPanelController: NSObject, ObservableObject {
             }
         }
         
-        // Monitor for keyboard events
+        // Monitor for keyboard events - this intercepts at the app level
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return event }
-            return self.handleKeyEvent(event) ? nil : event
+            guard let self = self, self.isVisible else { return event }
+            
+            let items = ClipboardManager.shared.items
+            
+            switch event.keyCode {
+            case 53: // Escape
+                self.hidePanel()
+                return nil // Consume event
+                
+            case 126: // Up arrow
+                self.selectionState.moveUp()
+                return nil // Consume event
+                
+            case 125: // Down arrow
+                self.selectionState.moveDown(maxIndex: items.count - 1)
+                return nil // Consume event
+                
+            case 36: // Return/Enter
+                if self.selectionState.index >= 0 && self.selectionState.index < items.count {
+                    self.selectItem(items[self.selectionState.index])
+                }
+                return nil // Consume event
+                
+            case 51: // Delete/Backspace
+                if self.selectionState.index >= 0 && self.selectionState.index < items.count {
+                    self.deleteItem(items[self.selectionState.index])
+                }
+                return nil // Consume event
+                
+            default:
+                return event // Pass other keys through
+            }
         }
     }
     
@@ -161,45 +219,6 @@ class FloatingPanelController: NSObject, ObservableObject {
         if let monitor = keyMonitor {
             NSEvent.removeMonitor(monitor)
             keyMonitor = nil
-        }
-    }
-    
-    private func handleKeyEvent(_ event: NSEvent) -> Bool {
-        guard isVisible else { return false }
-        
-        let items = ClipboardManager.shared.items
-        
-        switch event.keyCode {
-        case 53: // Escape
-            hidePanel()
-            return true
-            
-        case 126: // Up arrow
-            if selectedIndex > 0 {
-                selectedIndex -= 1
-            }
-            return true
-            
-        case 125: // Down arrow
-            if selectedIndex < items.count - 1 {
-                selectedIndex += 1
-            }
-            return true
-            
-        case 36: // Return/Enter
-            if selectedIndex >= 0 && selectedIndex < items.count {
-                selectItem(items[selectedIndex])
-            }
-            return true
-            
-        case 51: // Delete/Backspace
-            if selectedIndex >= 0 && selectedIndex < items.count {
-                deleteItem(items[selectedIndex])
-            }
-            return true
-            
-        default:
-            return false
         }
     }
     
@@ -215,12 +234,12 @@ class FloatingPanelController: NSObject, ObservableObject {
     }
     
     private func deleteItem(_ item: ClipboardItem) {
-        let items = ClipboardManager.shared.items
+        let itemCount = ClipboardManager.shared.items.count
         ClipboardManager.shared.deleteItem(item)
         
         // Adjust selection if needed
-        if selectedIndex >= items.count - 1 && selectedIndex > 0 {
-            selectedIndex -= 1
+        if selectionState.index >= itemCount - 1 && selectionState.index > 0 {
+            selectionState.index -= 1
         }
     }
 }
