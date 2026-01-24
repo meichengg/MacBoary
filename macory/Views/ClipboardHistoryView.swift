@@ -166,6 +166,7 @@ struct VisualEffectView: NSViewRepresentable {
 }
 
 struct ClipboardItemRow: View {
+    @ObservedObject var settingsManager = SettingsManager.shared
     let item: ClipboardItem
     let index: Int
     let isSelected: Bool
@@ -202,7 +203,7 @@ struct ClipboardItemRow: View {
             Spacer()
             
             // Shortcut Hint (⌘1-9)
-            if index < 9 {
+            if settingsManager.quickPasteEnabled && index < 9 {
                 Text("⌘\(index + 1)")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary.opacity(0.5))
@@ -216,16 +217,18 @@ struct ClipboardItemRow: View {
             
             if isHovered || isSelected || item.isPinned {
                 HStack(spacing: 4) {
-                    Button(action: onPin) {
-                        Image(systemName: item.isPinned ? "pin.slash.fill" : "pin.fill")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(item.isPinned ? .yellow : (isSelected ? .white.opacity(0.8) : .secondary))
-                            .padding(6)
-                            .background(isSelected ? Color.white.opacity(0.2) : Color.gray.opacity(0.1))
-                            .clipShape(Circle())
+                    if settingsManager.showPinButton || item.isPinned {
+                        Button(action: onPin) {
+                            Image(systemName: item.isPinned ? "pin.slash.fill" : "pin.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(item.isPinned ? .yellow : (isSelected ? .white.opacity(0.8) : .secondary))
+                                .padding(6)
+                                .background(isSelected ? Color.white.opacity(0.2) : Color.gray.opacity(0.1))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(item.isPinned ? "Unpin (⌘P)" : "Pin (⌘P)")
                     }
-                    .buttonStyle(.plain)
-                    .help(item.isPinned ? "Unpin (⌘P)" : "Pin (⌘P)")
                     
                     Button(action: onDelete) {
                         Image(systemName: "xmark")

@@ -25,6 +25,8 @@ struct SettingsView: View {
                     }
                 }
                 
+                Toggle("Show Pin Button", isOn: $settingsManager.showPinButton)
+                
                 Picker("Popup Position", selection: $settingsManager.popupPosition) {
                     ForEach(PopupPosition.allCases, id: \.self) { position in
                         Text(position.displayName).tag(position)
@@ -35,6 +37,15 @@ struct SettingsView: View {
             }
             
             Section {
+                Toggle(isOn: $settingsManager.quickPasteEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable Quick Paste Shortcuts")
+                        Text("Use ⌘1-9 to paste the first 9 items")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Global Hotkey")

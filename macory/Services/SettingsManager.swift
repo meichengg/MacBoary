@@ -26,11 +26,25 @@ class SettingsManager: ObservableObject {
     private let showDockIconKey = "showDockIcon"
     private let shortcutKey = "globalShortcut"
     private let popupPositionKey = "popupPosition"
+    private let quickPasteEnabledKey = "quickPasteEnabled"
+    private let showPinButtonKey = "showPinButton"
     
     @Published var showDockIcon: Bool {
         didSet {
             UserDefaults.standard.set(showDockIcon, forKey: showDockIconKey)
             updateDockIconVisibility()
+        }
+    }
+    
+    @Published var quickPasteEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(quickPasteEnabled, forKey: quickPasteEnabledKey)
+        }
+    }
+    
+    @Published var showPinButton: Bool {
+        didSet {
+            UserDefaults.standard.set(showPinButton, forKey: showPinButtonKey)
         }
     }
     
@@ -50,6 +64,8 @@ class SettingsManager: ObservableObject {
     
     private init() {
         self.showDockIcon = UserDefaults.standard.object(forKey: showDockIconKey) as? Bool ?? false
+        self.quickPasteEnabled = UserDefaults.standard.object(forKey: quickPasteEnabledKey) as? Bool ?? true
+        self.showPinButton = UserDefaults.standard.object(forKey: showPinButtonKey) as? Bool ?? true
         
         if let data = UserDefaults.standard.data(forKey: shortcutKey),
            let decoded = try? JSONDecoder().decode(GlobalKeyboardShortcut.self, from: data) {
