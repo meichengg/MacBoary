@@ -7,15 +7,11 @@
 
 import SwiftUI
 
+// This file is kept for compatibility but the app uses the menu bar and floating panel
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        Text("Macory is running in the menu bar")
+            .padding()
     }
 }
 
