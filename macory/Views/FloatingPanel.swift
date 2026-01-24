@@ -86,8 +86,8 @@ class FloatingPanelController: NSObject {
             createPanel()
         }
         
-        // Position near mouse
-        positionPanelNearMouse()
+        // Position panel based on settings
+        positionPanel()
         
         // Show panel and make it key
         panel?.orderFrontRegardless()
@@ -134,30 +134,45 @@ class FloatingPanelController: NSObject {
         }
     }
     
-    private func positionPanelNearMouse() {
+    private func positionPanel() {
         guard let panel = panel, let screen = NSScreen.main else { return }
         
-        let mouseLocation = NSEvent.mouseLocation
         let panelSize = panel.frame.size
-        
-        // Calculate position (prefer below and to the right of cursor)
-        var x = mouseLocation.x - panelSize.width / 2
-        var y = mouseLocation.y - panelSize.height - 10
-        
-        // Keep on screen
         let screenFrame = screen.visibleFrame
         
+        var x: CGFloat
+        var y: CGFloat
+        
+        switch SettingsManager.shared.popupPosition {
+        case .center:
+            // Center of screen
+            x = screenFrame.midX - panelSize.width / 2
+            y = screenFrame.midY - panelSize.height / 2
+            
+        case .mouse:
+            // Near mouse position
+            let mouseLocation = NSEvent.mouseLocation
+            x = mouseLocation.x - panelSize.width / 2
+            y = mouseLocation.y - panelSize.height - 10
+            
+            // Adjust if below screen
+            if y < screenFrame.minY {
+                y = mouseLocation.y + 20 // Show above cursor instead
+            }
+        }
+        
+        // Keep on screen (applies to both modes)
         if x < screenFrame.minX {
             x = screenFrame.minX + 10
         }
         if x + panelSize.width > screenFrame.maxX {
             x = screenFrame.maxX - panelSize.width - 10
         }
-        if y < screenFrame.minY {
-            y = mouseLocation.y + 20 // Show above cursor instead
-        }
         if y + panelSize.height > screenFrame.maxY {
             y = screenFrame.maxY - panelSize.height - 10
+        }
+        if y < screenFrame.minY {
+            y = screenFrame.minY + 10
         }
         
         panel.setFrameOrigin(NSPoint(x: x, y: y))

@@ -37,6 +37,13 @@ struct SettingsView: View {
                     Text("When disabled, Macory runs as a menu bar only app")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    
+                    Picker("Popup Position", selection: $settingsManager.popupPosition) {
+                        ForEach(PopupPosition.allCases, id: \.self) { position in
+                            Text(position.displayName).tag(position)
+                        }
+                    }
+                    .pickerStyle(.menu)
                 } header: {
                     Label("Appearance", systemImage: "paintbrush")
                 }
