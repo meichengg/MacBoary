@@ -27,6 +27,15 @@ struct SettingsView: View {
                 
                 Toggle("Show Pin Button", isOn: $settingsManager.showPinButton)
                 
+                Toggle(isOn: $settingsManager.storeImages) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Store Images")
+                        Text("Save copied images to history")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
                 Picker("Popup Position", selection: $settingsManager.popupPosition) {
                     ForEach(PopupPosition.allCases, id: \.self) { position in
                         Text(position.displayName).tag(position)

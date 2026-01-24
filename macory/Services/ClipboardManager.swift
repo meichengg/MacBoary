@@ -85,12 +85,22 @@ class ClipboardManager: ObservableObject {
         // Prioritize explicit image types to avoid catching icons from files/text
         let types = pasteboard.types ?? []
         if (types.contains(.tiff) || types.contains(.png)) && !types.contains(.fileURL) {
-            if let image = NSImage(pasteboard: pasteboard) {
-                if let filename = saveImage(image) {
-                     let newItem = ClipboardItem(content: "Image", type: .image, imagePath: filename)
-                     add(newItem)
-                     return
+            // Check if image storage is enabled
+            if SettingsManager.shared.storeImages {
+                if let image = NSImage(pasteboard: pasteboard) {
+                    if let filename = saveImage(image) {
+                         let newItem = ClipboardItem(content: "Image", type: .image, imagePath: filename)
+                         add(newItem)
+                         return
+                    }
                 }
+            } else {
+                // If images are disabled, do we skip or just ignore?
+                // If we return here, we might miss text that is also available.
+                // But usually if it's an image copy, primary type is image. 
+                // Let's allow falling through to text check if image storage is disabled 
+                // BUT only if there is text?
+                // Actually, if I copy an image, I don't want to save "Image" text if I disallowed images.
             }
         }
         
