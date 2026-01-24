@@ -250,6 +250,31 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
                 }
                 return event
                 
+            case 18, 19, 20, 21, 23, 22, 26, 28, 25: // 1-9 Keys
+                if event.modifierFlags.contains(.command) {
+                    // Map key code to index 0-8
+                    // 18->0, 19->1, 20->2, 21->3, 23->4, 22->5, 26->6, 28->7, 25->8
+                    var index: Int?
+                    switch event.keyCode {
+                    case 18: index = 0
+                    case 19: index = 1
+                    case 20: index = 2
+                    case 21: index = 3
+                    case 23: index = 4
+                    case 22: index = 5
+                    case 26: index = 6
+                    case 28: index = 7
+                    case 25: index = 8
+                    default: break
+                    }
+                    
+                    if let index = index, index < filtered.count {
+                        self.selectItem(filtered[index])
+                        return nil
+                    }
+                }
+                return event
+                
             case 51: // Delete/Backspace
                 // Should only delete if not editing text field?
                 // Actually backspace is needed for search bar.

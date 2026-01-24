@@ -105,6 +105,7 @@ struct ClipboardHistoryView: View {
                             ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
                                 ClipboardItemRow(
                                     item: item,
+                                    index: index,
                                     isSelected: index == viewModel.selectionIndex,
                                     onSelect: { onSelect(item) },
                                     onDelete: { onDelete(item) },
@@ -166,6 +167,7 @@ struct VisualEffectView: NSViewRepresentable {
 
 struct ClipboardItemRow: View {
     let item: ClipboardItem
+    let index: Int
     let isSelected: Bool
     var onSelect: () -> Void
     var onDelete: () -> Void
@@ -198,6 +200,19 @@ struct ClipboardItemRow: View {
             }
             
             Spacer()
+            
+            // Shortcut Hint (⌘1-9)
+            if index < 9 {
+                Text("⌘\(index + 1)")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary.opacity(0.5))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(isSelected ? Color.white.opacity(0.1) : Color.primary.opacity(0.05))
+                    )
+            }
             
             if isHovered || isSelected || item.isPinned {
                 HStack(spacing: 4) {
