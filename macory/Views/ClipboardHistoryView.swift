@@ -59,14 +59,15 @@ struct ClipboardHistoryView: View {
                         .frame(height: 16)
                     
                     Button(action: {
-                        clipboardManager.clearHistory()
+                        let includePinned = NSEvent.modifierFlags.contains(.option)
+                        clipboardManager.clearHistory(includePinned: includePinned)
                     }) {
                         Image(systemName: "trash")
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Clear All (keeps pinned)")
-                    .disabled(clipboardManager.items.filter { !$0.isPinned }.isEmpty)
+                    .help("Clear All (Option+Click to include pinned)")
+                    .disabled(clipboardManager.items.isEmpty)
                 }
                 .padding(10)
                 .background(Color(NSColor.controlBackgroundColor))

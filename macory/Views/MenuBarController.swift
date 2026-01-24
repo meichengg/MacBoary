@@ -98,16 +98,26 @@ class MenuBarController: NSObject {
         FloatingPanelController.shared.showPanel()
     }
     
-    @objc private func clearHistory() {
+    @objc func clearHistory() {
+        // Bring app to front if needed for the alert
+        NSApp.activate(ignoringOtherApps: true)
+        
         let alert = NSAlert()
         alert.messageText = "Clear Clipboard History?"
-        alert.informativeText = "This will remove all items from your clipboard history. This action cannot be undone."
+        alert.informativeText = "This will remove items from your clipboard history. This action cannot be undone."
         alert.alertStyle = .warning
+        
         alert.addButton(withTitle: "Clear")
         alert.addButton(withTitle: "Cancel")
         
+        let checkbox = NSButton(checkboxWithTitle: "Also clear pinned items", target: nil, action: nil)
+        checkbox.state = .off
+        checkbox.sizeToFit() // Ensure text is visible
+        alert.accessoryView = checkbox
+        
         if alert.runModal() == .alertFirstButtonReturn {
-            ClipboardManager.shared.clearHistory()
+            let includePinned = (checkbox.state == .on)
+            ClipboardManager.shared.clearHistory(includePinned: includePinned)
         }
     }
     

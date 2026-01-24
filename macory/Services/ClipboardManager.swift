@@ -139,9 +139,12 @@ class ClipboardManager: ObservableObject {
         }
     }
     
-    func clearHistory() {
-        // Keep pinned items? Usually clear history keeps pinned.
-        items.removeAll { !$0.isPinned }
+    func clearHistory(includePinned: Bool = false) {
+        if includePinned {
+            items.removeAll()
+        } else {
+            items.removeAll { !$0.isPinned }
+        }
         saveHistory()
     }
     

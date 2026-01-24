@@ -45,6 +45,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ClipboardManager.shared.stopMonitoring()
     }
     
+    // MARK: - Dock Menu
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        
+        let showItem = NSMenuItem(title: "Show History", action: #selector(showHistoryFromDock), keyEquivalent: "")
+        menu.addItem(showItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        let clearItem = NSMenuItem(title: "Clear History...", action: #selector(clearHistoryFromDock), keyEquivalent: "")
+        menu.addItem(clearItem)
+        
+        return menu
+    }
+    
+    @objc private func showHistoryFromDock() {
+        FloatingPanelController.shared.showPanel()
+    }
+    
+    @objc private func clearHistoryFromDock() {
+        menuBarController?.clearHistory()
+    }
+    
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         FloatingPanelController.shared.showPanel()
         return false
