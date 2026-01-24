@@ -66,7 +66,7 @@ class HistoryViewModel: ObservableObject {
     }
 }
 
-class FloatingPanelController: NSObject {
+class FloatingPanelController: NSObject, NSWindowDelegate {
     static let shared = FloatingPanelController()
     
     private var panel: FloatingPanel?
@@ -120,6 +120,7 @@ class FloatingPanelController: NSObject {
     
     private func createPanel() {
         panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 450))
+        panel?.delegate = self
         
         let historyView = ClipboardHistoryView(
             viewModel: viewModel,
@@ -307,5 +308,12 @@ class FloatingPanelController: NSObject {
     
     private func togglePin(_ item: ClipboardItem) {
         ClipboardManager.shared.togglePin(item)
+    }
+    
+    // MARK: - NSWindowDelegate
+    func windowDidResignKey(_ notification: Notification) {
+        if isVisible {
+            hidePanel()
+        }
     }
 }
