@@ -24,6 +24,44 @@ class ClipboardManager: ObservableObject {
         startMonitoring()
     }
     
+    // MARK: - Image Storage
+    
+    private var imagesDirectory: URL {
+        let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        let appSupport = urls[0].appendingPathComponent("app.macory/images")
+        try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+        return appSupport
+    }
+    
+    private func saveImage(_ image: NSImage) -> String? {
+        let fileName = UUID().uuidString + ".png"
+        let fileURL = imagesDirectory.appendingPathComponent(fileName)
+        
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            return nil
+        }
+        
+        do {
+            try pngData.write(to: fileURL)
+            return fileName
+        } catch {
+            print("Failed to save image: \(error)")
+            return nil
+        }
+    }
+    
+    func getImage(named name: String) -> NSImage? {
+        let fileURL = imagesDirectory.appendingPathComponent(name)
+        return NSImage(contentsOf: fileURL)
+    }
+    
+    private func deleteImage(named name: String) {
+        let fileURL = imagesDirectory.appendingPathComponent(name)
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+
     func startMonitoring() {
         lastChangeCount = NSPasteboard.general.changeCount
         
@@ -43,77 +81,94 @@ class ClipboardManager: ObservableObject {
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
         
+        // 1. Check for Image
+        // Prioritize explicit image types to avoid catching icons from files/text
+        let types = pasteboard.types ?? []
+        if (types.contains(.tiff) || types.contains(.png)) && !types.contains(.fileURL) {
+            if let image = NSImage(pasteboard: pasteboard) {
+                if let filename = saveImage(image) {
+                     let newItem = ClipboardItem(content: "Image", type: .image, imagePath: filename)
+                     add(newItem)
+                     return
+                }
+            }
+        }
+        
+        // 2. Check for Text
         guard let content = pasteboard.string(forType: .string),
               !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
         }
         
-        // Don't add duplicates at the top
-        if let firstItem = items.first, firstItem.content == content {
-            return
+        let newItem = ClipboardItem(content: content)
+        add(newItem)
+    }
+    
+    private func add(_ newItem: ClipboardItem) {
+        // Handle duplication for Text
+        if newItem.type == .text {
+            // Don't add duplicates at the top
+            if let firstItem = items.first, firstItem.type == .text, firstItem.content == newItem.content {
+                return
+            }
+            // Remove existing duplicate if present
+            items.removeAll { $0.type == .text && $0.content == newItem.content }
+        } else {
+            // For images, hard to deduplicate efficiently without hash.
+            // For now, accept duplicates or check naive comparison (not easy).
+            // We just add it.
         }
         
-        // Remove existing duplicate if present
-        items.removeAll { $0.content == content }
-        
         // Add new item at the top (after pinned items)
-        let newItem = ClipboardItem(content: content)
-        
-        // Find split between pinned and unpinned
         let pinnedCount = items.filter { $0.isPinned }.count
         items.insert(newItem, at: pinnedCount)
         
-        // Limit history size (excluding pinned items to prevent them from being pushed out?)
-        // Or just limit total size? Let's limit unpinned size effectively.
-        // Actually simplest is limit total size but pinned items are immune to deletion?
-        // Let's just limit total items for now, but ensure we don't drop pinned items if possible.
-        // Better strategy: Sort items so pinned are first, then chronological.
-        
-        if items.count > maxItems {
-             // Remove last item that is NOT pinned
-             if let lastUnpinnedIndex = items.lastIndex(where: { !$0.isPinned }) {
-                 items.remove(at: lastUnpinnedIndex)
-             } else {
-                 // All items are pinned and we are over limit? Just trim the end
-                 items = Array(items.prefix(maxItems))
-             }
-        }
-        
+        enforceLimit()
         saveHistory()
     }
     
-    func selectItem(_ item: ClipboardItem) {
-        // Move item to top (respecting pins)
-        if !item.isPinned {
-            items.removeAll { $0.id == item.id }
-            let pinnedCount = items.filter { $0.isPinned }.count
-            items.insert(item, at: pinnedCount)
+    private func enforceLimit() {
+        if items.count > maxItems {
+             // Remove last item that is NOT pinned
+             if let lastUnpinnedIndex = items.lastIndex(where: { !$0.isPinned }) {
+                 let itemToRemove = items[lastUnpinnedIndex]
+                 if let imagePath = itemToRemove.imagePath {
+                     deleteImage(named: imagePath)
+                 }
+                 items.remove(at: lastUnpinnedIndex)
+             } else {
+                 items = Array(items.prefix(maxItems))
+             }
         }
-        // If pinned, it stays where it is (sorted by pin then date usually, but here we just keep position or ensure top of pins?)
-        // For pinned items, maybe we don't move them on selection? Or move to top of pinned list?
-        // Let's keep it simple: Selection copies to clipboard. Re-ordering of unpinned happens automatically by checkClipboard detection.
-        // But checkClipboard won't trigger if content matches recent.
-        // So we should manually update the "freshness" or let checkClipboard handle it.
-        // If we force copy to pasteboard, checkClipboard catches it.
-        
-        // Copy to clipboard
+    }
+    
+    func selectItem(_ item: ClipboardItem) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(item.content, forType: .string)
+        
+        if item.type == .image, let imagePath = item.imagePath, let image = getImage(named: imagePath) {
+             pasteboard.writeObjects([image])
+        } else {
+             pasteboard.setString(item.content, forType: .string)
+        }
         lastChangeCount = pasteboard.changeCount
         
         // If unpinned, move to top of unpinned section
         if !item.isPinned {
             items.removeAll { $0.id == item.id }
             let pinnedCount = items.filter { $0.isPinned }.count
-            // Create new item with fresh timestamp
-            let refreshedItem = ClipboardItem(id: item.id, content: item.content, timestamp: Date(), isPinned: false)
+            // Create new item with fresh timestamp (reuse image file for now, or copy?)
+            // We reuse the image file.
+            let refreshedItem = ClipboardItem(id: item.id, content: item.content, timestamp: Date(), isPinned: false, type: item.type, imagePath: item.imagePath)
             items.insert(refreshedItem, at: pinnedCount)
             saveHistory()
         }
     }
     
     func deleteItem(_ item: ClipboardItem) {
+        if let imagePath = item.imagePath {
+            deleteImage(named: imagePath)
+        }
         items.removeAll { $0.id == item.id }
         saveHistory()
     }
@@ -126,12 +181,8 @@ class ClipboardManager: ObservableObject {
             
             // Re-insert based on new pin state
             if updatedItem.isPinned {
-                // Insert at top of list (beginning of pinned items)
                 items.insert(updatedItem, at: 0)
             } else {
-                // Insert at top of unpinned list (after all pinned items)
-                // Or restore to chronological position?
-                // Simplest is top of unpinned items (most recent unpinned)
                 let pinnedCount = items.filter { $0.isPinned }.count
                 items.insert(updatedItem, at: pinnedCount)
             }
@@ -140,6 +191,15 @@ class ClipboardManager: ObservableObject {
     }
     
     func clearHistory(includePinned: Bool = false) {
+        // Collect files to delete
+        let itemsToDelete = includePinned ? items : items.filter { !$0.isPinned }
+        
+        for item in itemsToDelete {
+            if let imagePath = item.imagePath {
+                deleteImage(named: imagePath)
+            }
+        }
+        
         if includePinned {
             items.removeAll()
         } else {

@@ -175,6 +175,7 @@ struct ClipboardItemRow: View {
     var onPin: () -> Void
     
     @State private var isHovered = false
+    @State private var thumbnail: NSImage?
     
     var body: some View {
         HStack(spacing: 10) {
@@ -184,16 +185,42 @@ struct ClipboardItemRow: View {
                     .fill(isSelected ? Color.white.opacity(0.2) : Color.gray.opacity(0.1))
                     .frame(width: 28, height: 28)
                 
-                Image(systemName: item.isPinned ? "pin.fill" : "text.alignleft")
+                let iconName: String = {
+                    if item.isPinned { return "pin.fill" }
+                    if item.type == .image { return "photo" }
+                    return "text.alignleft"
+                }()
+                
+                Image(systemName: iconName)
                     .font(.system(size: 12))
                     .foregroundColor(item.isPinned ? .yellow : (isSelected ? .white : .secondary))
             }
             
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.displayText)
-                    .font(.system(size: 13, weight: .regular))
-                    .lineLimit(1)
-                    .foregroundColor(isSelected ? .white : .primary)
+                if item.type == .image {
+                    if let thumb = thumbnail {
+                        Image(nsImage: thumb)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 60)
+                            .cornerRadius(4)
+                    } else {
+                        // Placeholder or loading
+                        HStack {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Loading image...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(height: 40)
+                    }
+                } else {
+                    Text(item.displayText)
+                        .font(.system(size: 13, weight: .regular))
+                        .lineLimit(1)
+                        .foregroundColor(isSelected ? .white : .primary)
+                }
                 
                 Text(item.timeAgo)
                     .font(.system(size: 10))
@@ -255,6 +282,21 @@ struct ClipboardItemRow: View {
         }
         .onHover { hovering in
             isHovered = hovering
+        }
+        .onAppear {
+            if item.type == .image && thumbnail == nil {
+                if let path = item.imagePath {
+                    // Load off main thread to avoid stutter
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        let img = ClipboardManager.shared.getImage(named: path)
+                        DispatchQueue.main.async {
+                            withAnimation {
+                                self.thumbnail = img
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
