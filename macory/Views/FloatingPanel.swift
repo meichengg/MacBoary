@@ -100,6 +100,11 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
     }
     
     func showPanel() {
+        // Don't show panel while permission request is in progress
+        if PermissionManager.shared.isRequestingPermission {
+            return
+        }
+        
         // Store the currently active app before showing panel
         previousApp = NSWorkspace.shared.frontmostApplication
         

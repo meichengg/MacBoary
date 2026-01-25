@@ -72,9 +72,11 @@ struct Localization {
         
         // Settings - Permissions
         "accessibility_access": "Accessibility Access",
-        "accessibility_desc": "Required for global hotkey and pasting",
+        "accessibility_desc": "Required for automatic paste",
         "granted": "Granted",
         "grant_access": "Grant Access",
+        "permission_granted_notification": "Accessibility permission granted! Automatic paste is now enabled.",
+        "permission_warning": "Accessibility permission required for automatic paste.",
 
         // Settings - Appearance
         "use_custom_colors": "Use Custom Colors",
@@ -173,9 +175,11 @@ struct Localization {
         
         // Settings - Permissions
         "accessibility_access": "Bedienungshilfen-Zugriff",
-        "accessibility_desc": "Erforderlich für globalen Kurzbefehl und Einfügen",
+        "accessibility_desc": "Erforderlich für automatisches Einfügen",
         "granted": "Zugriff erteilt",
         "grant_access": "Zugriff gewähren",
+        "permission_granted_notification": "Zugriffsberechtigung erteilt! Automatisches Einfügen ist jetzt aktiviert.",
+        "permission_warning": "Bedienungshilfen-Zugriff erforderlich für automatisches Einfügen.",
 
         // Settings - Appearance
         "use_custom_colors": "Benutzerdefinierte Farben",
@@ -310,9 +314,11 @@ struct Localization {
         
         // Settings - Permissions
         "accessibility_access": "Acceso de accesibilidad",
-        "accessibility_desc": "Requerido para el atajo global y pegar",
+        "accessibility_desc": "Requerido para pegar automáticamente",
         "granted": "Concedido",
         "grant_access": "Conceder acceso",
+        "permission_granted_notification": "¡Permiso de accesibilidad concedido! El pegado automático está ahora activado.",
+        "permission_warning": "Permiso de accesibilidad requerido para pegar automáticamente.",
 
         // Settings - Appearance
         "use_custom_colors": "Colores personalizados",
@@ -411,9 +417,11 @@ struct Localization {
         
         // Settings - Permissions
         "accessibility_access": "Accès d'accessibilité",
-        "accessibility_desc": "Requis pour le raccourci global et le collage",
+        "accessibility_desc": "Requis pour le collage automatique",
         "granted": "Accordé",
         "grant_access": "Accorder l'accès",
+        "permission_granted_notification": "Autorisation d'accessibilité accordée ! Le collage automatique est maintenant activé.",
+        "permission_warning": "Autorisation d'accessibilité requise pour le collage automatique.",
 
         // Settings - Appearance
         "use_custom_colors": "Couleurs personnalisées",
@@ -510,9 +518,11 @@ struct Localization {
         
         // Settings - Permissions
         "accessibility_access": "辅助功能权限",
-        "accessibility_desc": "全局快捷键和粘贴功能需要",
+        "accessibility_desc": "自动粘贴功能需要",
         "granted": "已授权",
         "grant_access": "授权",
+        "permission_granted_notification": "辅助功能权限已授予！自动粘贴现已启用。",
+        "permission_warning": "自动粘贴功能需要辅助功能权限。",
 
         // Settings - Appearance
         "use_custom_colors": "使用自定义颜色",
@@ -611,9 +621,11 @@ struct Localization {
         
         // Settings - Permissions
         "accessibility_access": "एक्सेसिबिलिटी एक्सेस",
-        "accessibility_desc": "ग्लोबल हॉटकी और पेस्ट करने के लिए आवश्यक",
+        "accessibility_desc": "स्वचालित पेस्ट के लिए आवश्यक",
         "granted": "दी गई",
         "grant_access": "एक्सेस दें",
+        "permission_granted_notification": "सुलभता अनुमति दी गई! स्वचालित पेस्ट अब सक्षम है।",
+        "permission_warning": "स्वचालित पेस्ट के लिए एक्सेसिबिलिटी अनुमति आवश्यक है।",
 
         // Settings - Appearance
         "use_custom_colors": "कस्टम रंग उपयोग करें",

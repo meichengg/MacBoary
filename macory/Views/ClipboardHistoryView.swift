@@ -81,6 +81,30 @@ struct ClipboardHistoryView: View {
             Divider()
                 .opacity(0.4)
             
+            // Permission warning banner
+            if !PermissionManager.shared.hasAccessibilityPermission {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 14))
+                    Text(settingsManager.localized("permission_warning"))
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button(settingsManager.localized("grant_access")) {
+                        PermissionManager.shared.openAccessibilityPreferences()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.1))
+                
+                Divider()
+                    .opacity(0.4)
+            }
+            
             if filteredItems.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: viewModel.searchText.isEmpty ? "clipboard" : "magnifyingglass")

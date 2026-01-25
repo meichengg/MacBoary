@@ -18,11 +18,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup menu bar
         menuBarController = MenuBarController()
         
-        // Request permissions
-        PermissionManager.shared.checkAndRequestPermissions()
-        
-        // Register global hotkey
+        // Always try to register hotkey (will work if permission is granted)
         registerHotkey()
+        
+        // Request permissions if needed (but don't block hotkey registration)
+        if !PermissionManager.shared.hasAccessibilityPermission {
+            PermissionManager.shared.checkAndRequestPermissions()
+        }
+        
+        // Listen for permission changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(permissionGranted),
+            name: .permissionGranted,
+            object: nil
+        )
         
         // Listen for shortcut changes
         NotificationCenter.default.addObserver(
@@ -83,5 +93,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func shortcutDidChange() {
         registerHotkey()
         menuBarController?.updateMenu()
+    }
+    
+    @objc private func permissionGranted() {
+        // Permission was granted, re-register hotkey to ensure it works
+        registerHotkey()
+        
+        // Open the floating panel to show it's ready
+        FloatingPanelController.shared.showPanel()
     }
 }
