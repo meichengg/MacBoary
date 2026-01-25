@@ -85,7 +85,24 @@ class ClipboardManager: ObservableObject {
         // 1. Check for Image
         // Prioritize explicit image types to avoid catching icons from files/text
         let types = pasteboard.types ?? []
+        var isImageCandidate = false
+        
+        // Case A: Direct image data (e.g. screenshot, specialized copy)
         if (types.contains(.tiff) || types.contains(.png)) && !types.contains(.fileURL) {
+            isImageCandidate = true
+        }
+        // Case B: File URL that points to an image (e.g. Telegram, Finder image copy)
+        else if types.contains(.fileURL) {
+            if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
+               let url = urls.first {
+                let imageExtensions = ["jpg", "jpeg", "png", "tiff", "tif", "gif", "heic", "bmp", "webp"]
+                if imageExtensions.contains(url.pathExtension.lowercased()) {
+                    isImageCandidate = true
+                }
+            }
+        }
+        
+        if isImageCandidate {
             // Check if image storage is enabled
             if SettingsManager.shared.storeImages {
                 if let image = NSImage(pasteboard: pasteboard) {
