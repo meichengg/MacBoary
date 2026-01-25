@@ -38,12 +38,17 @@ class FloatingPanel: NSPanel {
 
 // Separate observable class for selection and search state
 class HistoryViewModel: ObservableObject {
+    static let defaultPageSize = 20
+    var pageSize: Int { Self.defaultPageSize }
+    
     @Published var selectionIndex: Int = 0
+    @Published var displayedLimit: Int = HistoryViewModel.defaultPageSize
     @Published var searchText: String = "" {
         didSet {
-            // Reset selection when search changes
+            // Reset selection and limit when search changes
             if oldValue != searchText {
                 selectionIndex = 0
+                displayedLimit = pageSize
             }
         }
     }
@@ -62,6 +67,7 @@ class HistoryViewModel: ObservableObject {
     
     func reset() {
         selectionIndex = 0
+        displayedLimit = pageSize
         searchText = ""
     }
 }
@@ -232,18 +238,37 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
                 return nil // Consume event
                 
             case 125: // Down arrow
-                self.viewModel.moveDown(maxIndex: filtered.count - 1)
+                let maxIndex: Int
+                if filtered.count > self.viewModel.displayedLimit {
+                    // Include "Load More" button as the last selectable item
+                    maxIndex = self.viewModel.displayedLimit
+                } else {
+                    maxIndex = filtered.count - 1
+                }
+                self.viewModel.moveDown(maxIndex: maxIndex)
                 return nil // Consume event
                 
             case 36: // Return/Enter
+                if filtered.count > self.viewModel.displayedLimit && self.viewModel.selectionIndex == self.viewModel.displayedLimit {
+                    // Load More clicked
+                    self.viewModel.displayedLimit += self.viewModel.pageSize
+                    return nil
+                }
+                
                 if self.viewModel.selectionIndex >= 0 && self.viewModel.selectionIndex < filtered.count {
-                    self.selectItem(filtered[self.viewModel.selectionIndex])
+                    // Ensure we don't select hidden items
+                    if self.viewModel.selectionIndex < self.viewModel.displayedLimit {
+                        self.selectItem(filtered[self.viewModel.selectionIndex])
+                    }
                 }
                 return nil // Consume event
                 
             case 35: // Command+P for toggle pin
                 if event.modifierFlags.contains(.command) {
-                     if self.viewModel.selectionIndex >= 0 && self.viewModel.selectionIndex < filtered.count {
+                     // Check strictly less than displayedLimit so we don't try to pin the Load More button
+                     if self.viewModel.selectionIndex >= 0 &&
+                        self.viewModel.selectionIndex < filtered.count &&
+                        self.viewModel.selectionIndex < self.viewModel.displayedLimit {
                         self.togglePin(filtered[self.viewModel.selectionIndex])
                         return nil
                     }

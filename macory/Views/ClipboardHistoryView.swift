@@ -101,7 +101,9 @@ struct ClipboardHistoryView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 4) {
-                            ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
+                            let visibleItems = Array(filteredItems.prefix(viewModel.displayedLimit).enumerated())
+                            
+                            ForEach(visibleItems, id: \.element.id) { index, item in
                                 ClipboardItemRow(
                                     item: item,
                                     index: index,
@@ -110,16 +112,50 @@ struct ClipboardHistoryView: View {
                                     onDelete: { onDelete(item) },
                                     onPin: { onPin(item) }
                                 )
-                                .id(index) // Use index for scrolling
+                                .id("item-\(item.id.uuidString)")
+                            }
+                            
+                            if filteredItems.count > viewModel.displayedLimit {
+                                Button(action: {
+                                    withAnimation {
+                                        viewModel.displayedLimit += viewModel.pageSize
+                                    }
+                                }) {
+                                    HStack {
+                                        Spacer()
+                                        Text(settingsManager.localized("load_more"))
+                                            .font(.system(size: 13, weight: .medium))
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 11))
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(viewModel.selectionIndex == viewModel.displayedLimit ? Color.accentColor : Color.secondary.opacity(0.1))
+                                    )
+                                    .foregroundColor(viewModel.selectionIndex == viewModel.displayedLimit ? .white : .primary)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .id("load-more-\(viewModel.displayedLimit)")
                             }
                         }
                         .padding(.vertical, 6)
                         .padding(.horizontal, 8)
+                        .id(viewModel.displayedLimit) // Force re-render when limit changes
                     }
                     .onChange(of: viewModel.selectionIndex) { _, newIndex in
+                        // Scroll to item
                         if newIndex >= 0 && newIndex < filteredItems.count {
+                            let item = filteredItems[newIndex]
                             withAnimation(.easeInOut(duration: 0.1)) {
-                                proxy.scrollTo(newIndex, anchor: .center)
+                                proxy.scrollTo("item-\(item.id.uuidString)", anchor: .center)
+                            }
+                        } else if newIndex == viewModel.displayedLimit && filteredItems.count > viewModel.displayedLimit {
+                            // Scroll to load more button
+                            withAnimation(.easeInOut(duration: 0.1)) {
+                                proxy.scrollTo("load-more-\(viewModel.displayedLimit)", anchor: .center)
                             }
                         }
                     }
