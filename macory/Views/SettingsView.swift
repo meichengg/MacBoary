@@ -26,7 +26,7 @@ struct SettingsView: View {
                 Toggle(isOn: $settingsManager.showDockIcon) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(settingsManager.localized("show_dock"))
-                        Text("If disabled, app runs in menu bar only")
+                        Text(settingsManager.localized("show_dock_desc"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -49,7 +49,7 @@ struct SettingsView: View {
                 
                 Toggle(settingsManager.localized("pin"), isOn: $settingsManager.showPinButton)
                 
-                Picker("Theme", selection: $settingsManager.appTheme) {
+                Picker(settingsManager.localized("theme"), selection: $settingsManager.appTheme) {
                     ForEach(AppTheme.allCases, id: \.self) { theme in
                         Text(theme.displayName).tag(theme)
                     }
@@ -85,8 +85,8 @@ struct SettingsView: View {
             Section {
                 Toggle(isOn: $settingsManager.storeImages) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(settingsManager.localized("keep_images"))
-                        Text("Save copied images to history")
+                        Text(settingsManager.localized("store_images"))
+                        Text(settingsManager.localized("store_images_desc"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
