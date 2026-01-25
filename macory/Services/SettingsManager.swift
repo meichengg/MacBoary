@@ -77,6 +77,7 @@ class SettingsManager: ObservableObject {
     private let storeImagesKey = "storeImages"
     private let textRetentionDaysKey = "textRetentionDays"
     private let imageRetentionDaysKey = "imageRetentionDays"
+    private let maxHistoryItemsKey = "maxHistoryItems"
     private let appThemeKey = "appTheme"
     private let appLanguageKey = "appLanguage"
     private let useCustomColorsKey = "useCustomColors"
@@ -176,6 +177,12 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var maxHistoryItems: Int {
+        didSet {
+            UserDefaults.standard.set(maxHistoryItems, forKey: maxHistoryItemsKey)
+        }
+    }
+    
     @Published var appTheme: AppTheme {
         didSet {
             UserDefaults.standard.set(appTheme.rawValue, forKey: appThemeKey)
@@ -203,6 +210,7 @@ class SettingsManager: ObservableObject {
         self.storeImages = UserDefaults.standard.object(forKey: storeImagesKey) as? Bool ?? true
         self.textRetentionDays = UserDefaults.standard.object(forKey: textRetentionDaysKey) as? Int ?? 7
         self.imageRetentionDays = UserDefaults.standard.object(forKey: imageRetentionDaysKey) as? Int ?? 1
+        self.maxHistoryItems = UserDefaults.standard.object(forKey: maxHistoryItemsKey) as? Int ?? 500
         
         self.launchAtLogin = SMAppService.mainApp.status == .enabled
         

@@ -8,6 +8,7 @@
 import Foundation
 import AppKit
 import Combine
+import ImageIO
 
 class ClipboardManager: ObservableObject {
     static let shared = ClipboardManager()
@@ -15,8 +16,8 @@ class ClipboardManager: ObservableObject {
     @Published var items: [ClipboardItem] = []
     
     private var timer: Timer?
+    private var cleanupTimer: Timer?
     private var lastChangeCount: Int = 0
-    private let maxItems = 50
     private let storageKey = "clipboardHistory"
     
     private init() {
@@ -58,6 +59,23 @@ class ClipboardManager: ObservableObject {
         return NSImage(contentsOf: fileURL)
     }
     
+    func getThumbnail(named name: String, maxDimension: CGFloat = 200) -> NSImage? {
+        let fileURL = imagesDirectory.appendingPathComponent(name)
+        
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimension
+        ]
+        
+        guard let imageSource = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+              let cgImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options as CFDictionary) else {
+            return nil
+        }
+        
+        return NSImage(cgImage: cgImage, size: NSSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+    }
+    
     private func deleteImage(named name: String) {
         let fileURL = imagesDirectory.appendingPathComponent(name)
         try? FileManager.default.removeItem(at: fileURL)
@@ -66,14 +84,22 @@ class ClipboardManager: ObservableObject {
     func startMonitoring() {
         lastChangeCount = NSPasteboard.general.changeCount
         
+        // Main polling timer
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkClipboard()
+        }
+        
+        // Periodic cleanup timer (every hour)
+        cleanupTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+            self?.cleanupOldItems()
         }
     }
     
     func stopMonitoring() {
         timer?.invalidate()
         timer = nil
+        cleanupTimer?.invalidate()
+        cleanupTimer = nil
     }
     
     private func checkClipboard() {
@@ -158,17 +184,20 @@ class ClipboardManager: ObservableObject {
     }
     
     private func enforceLimit() {
-        if items.count > maxItems {
-             // Remove last item that is NOT pinned
-             if let lastUnpinnedIndex = items.lastIndex(where: { !$0.isPinned }) {
-                 let itemToRemove = items[lastUnpinnedIndex]
-                 if let imagePath = itemToRemove.imagePath {
-                     deleteImage(named: imagePath)
-                 }
-                 items.remove(at: lastUnpinnedIndex)
-             } else {
-                 items = Array(items.prefix(maxItems))
-             }
+        let maxItems = SettingsManager.shared.maxHistoryItems
+        
+        while items.count > maxItems {
+            // Remove last item that is NOT pinned
+            if let lastUnpinnedIndex = items.lastIndex(where: { !$0.isPinned }) {
+                let itemToRemove = items[lastUnpinnedIndex]
+                if let imagePath = itemToRemove.imagePath {
+                    deleteImage(named: imagePath)
+                }
+                items.remove(at: lastUnpinnedIndex)
+            } else {
+                // Only pinned items remain. We allow exceeding the limit if they are all pinned.
+                break
+            }
         }
     }
     

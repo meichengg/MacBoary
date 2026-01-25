@@ -100,7 +100,7 @@ struct ClipboardHistoryView: View {
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(spacing: 4) {
+                        LazyVStack(spacing: 4) {
                             ForEach(Array(filteredItems.enumerated()), id: \.element.id) { index, item in
                                 ClipboardItemRow(
                                     item: item,
@@ -295,7 +295,8 @@ struct ClipboardItemRow: View {
                 if let path = item.imagePath {
                     // Load off main thread to avoid stutter
                     DispatchQueue.global(qos: .userInitiated).async {
-                        let img = ClipboardManager.shared.getImage(named: path)
+                        // Load thumbnail instead of full image
+                        let img = ClipboardManager.shared.getThumbnail(named: path, maxDimension: 300)
                         DispatchQueue.main.async {
                             withAnimation {
                                 self.thumbnail = img

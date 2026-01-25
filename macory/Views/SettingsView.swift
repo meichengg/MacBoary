@@ -87,6 +87,14 @@ struct SettingsView: View {
             
             // Storage
             Section {
+                Picker(settingsManager.localized("max_history_items"), selection: $settingsManager.maxHistoryItems) {
+                    Text("50").tag(50)
+                    Text("100").tag(100)
+                    Text("200").tag(200)
+                    Text("500").tag(500)
+                    Text("1000").tag(1000)
+                }
+
                 Picker(settingsManager.localized("text_retention"), selection: $settingsManager.textRetentionDays) {
                     Text(settingsManager.localized("disabled")).tag(0)
                     Text("1 \(settingsManager.localized("days"))").tag(1)
