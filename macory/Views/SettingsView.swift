@@ -23,6 +23,10 @@ struct SettingsView: View {
                     }
                 }
                 
+                Toggle(isOn: $settingsManager.launchAtLogin) {
+                    Text(settingsManager.localized("launch_login"))
+                }
+                
                 Toggle(isOn: $settingsManager.showDockIcon) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(settingsManager.localized("show_dock"))

@@ -8,6 +8,7 @@
 import Foundation
 import AppKit
 import SwiftUI
+import ServiceManagement
 
 enum PopupPosition: String, CaseIterable, Codable {
     case center = "center"
@@ -90,6 +91,24 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var launchAtLogin: Bool = false {
+        didSet {
+            // Avoid infinite loop if set during init or sync
+            guard launchAtLogin != (SMAppService.mainApp.status == .enabled) else { return }
+            
+            do {
+                if launchAtLogin {
+                    try SMAppService.mainApp.register()
+                } else {
+                    try SMAppService.mainApp.unregister()
+                }
+            } catch {
+                print("Failed to update launch at login: \(error)")
+                // Revert UI if failed (optional, but good UX)
+            }
+        }
+    }
+
     @Published var showDockIcon: Bool {
         didSet {
             UserDefaults.standard.set(showDockIcon, forKey: showDockIconKey)
@@ -185,7 +204,10 @@ class SettingsManager: ObservableObject {
         self.textRetentionDays = UserDefaults.standard.object(forKey: textRetentionDaysKey) as? Int ?? 7
         self.imageRetentionDays = UserDefaults.standard.object(forKey: imageRetentionDaysKey) as? Int ?? 1
         
+        self.launchAtLogin = SMAppService.mainApp.status == .enabled
+        
         self.useCustomColors = UserDefaults.standard.bool(forKey: useCustomColorsKey)
+        
         
         if let accentData = UserDefaults.standard.data(forKey: customAccentColorKey),
            let decoded = try? JSONDecoder().decode(ColorConfig.self, from: accentData) {
