@@ -1,6 +1,17 @@
 # MacBoary
 
+<p align="center">
+  <img src="assets/trayicon.png" alt="MacBoary Menu Bar Icon" width="15%">
+</p>
+
 MacBoary is a lightweight, secure clipboard manager for macOS built with Swift and SwiftUI. It sits quietly in your menu bar and keeps track of your clipboard history, allowing you to easily find and paste past items.
+
+## Screenshots
+
+<p align="center">
+  <img src="assets/preview_dark.png" alt="MacBoary Dark Mode" width="35%">
+  <img src="assets/preview_google_dark.png" alt="MacBoary in Action" width="60%">
+</p>
 
 ## Features
 
@@ -30,18 +41,19 @@ MacBoary is a lightweight, secure clipboard manager for macOS built with Swift a
 ## Usage
 
 1. **Launch the App**: The app runs in the menu bar. Look for the icon in your status bar.
-2. **Access History**: Click the menu bar icon or use the global hotkey (default: `Cmd + Shift + V` - *check settings to configure*).
+2. **Access History**: Click the menu bar icon or use the global hotkey (default: `Cmd + Shift + V` - _check settings to configure_).
 3. **Paste**: Click on an item in the history list to copy it to your clipboard, or double-click to paste directly into the active application.
 4. **Settings**: Access preferences via the menu bar icon to configure:
-    - Launch at login
-    - History retention limits
-    - Encryption settings
-    - Keyboard shortcuts
-    - Appearance themes
+   - Launch at login
+   - History retention limits
+   - Encryption settings
+   - Keyboard shortcuts
+   - Appearance themes
 
 ## Privacy & Security
 
 MacBoary is designed with privacy in mind.
+
 - **Local Storage**: No data is ever sent to the cloud. Everything stays on your Mac.
 - **Encryption**: Enable encryption in settings to protect your clipboard history on disk. The encryption key is securely managed by the macOS Keychain.
 
