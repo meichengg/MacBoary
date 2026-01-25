@@ -341,52 +341,52 @@ struct Localization {
             it: "Impostazioni..."
         ),
         "menu_about": LocalizedString(
-            en: "About Macboary",
-            de: "Über Macboary",
-            es: "Acerca de Macboary",
-            fr: "À propos de Macboary",
-            zh: "关于 Macboary",
-            ja: "Macboary について",
-            ko: "Macboary 정보",
-            ru: "О приложении Macboary",
-            pt: "Sobre o Macboary",
-            it: "Informazioni su Macboary"
+            en: "About MacBoary",
+            de: "Über MacBoary",
+            es: "Acerca de MacBoary",
+            fr: "À propos de MacBoary",
+            zh: "关于 MacBoary",
+            ja: "MacBoary について",
+            ko: "MacBoary 정보",
+            ru: "О приложении MacBoary",
+            pt: "Sobre o MacBoary",
+            it: "Informazioni su MacBoary"
         ),
         "menu_quit": LocalizedString(
-            en: "Quit Macboary",
-            de: "Macboary beenden",
-            es: "Salir de Macboary",
-            fr: "Quitter Macboary",
-            zh: "退出 Macboary",
-            ja: "Macboary を終了",
-            ko: "Macboary 종료",
-            ru: "Выйти из Macboary",
-            pt: "Sair do Macboary",
-            it: "Esci da Macboary"
+            en: "Quit MacBoary",
+            de: "MacBoary beenden",
+            es: "Salir de MacBoary",
+            fr: "Quitter MacBoary",
+            zh: "退出 MacBoary",
+            ja: "MacBoary を終了",
+            ko: "MacBoary 종료",
+            ru: "Выйти из MacBoary",
+            pt: "Sair do MacBoary",
+            it: "Esci da MacBoary"
         ),
         "settings_title": LocalizedString(
-            en: "Macboary Settings",
-            de: "Macboary Einstellungen",
-            es: "Ajustes de Macboary",
-            fr: "Réglages Macboary",
-            zh: "Macboary 设置",
-            ja: "Macboary 設定",
-            ko: "Macboary 설정",
-            ru: "Настройки Macboary",
-            pt: "Configurações do Macboary",
-            it: "Impostazioni Macboary"
+            en: "MacBoary Settings",
+            de: "MacBoary Einstellungen",
+            es: "Ajustes de MacBoary",
+            fr: "Réglages MacBoary",
+            zh: "MacBoary 设置",
+            ja: "MacBoary 設定",
+            ko: "MacBoary 설정",
+            ru: "Настройки MacBoary",
+            pt: "Configurações do MacBoary",
+            it: "Impostazioni MacBoary"
         ),
         "about_title": LocalizedString(
-            en: "About Macboary",
-            de: "Über Macboary",
-            es: "Acerca de Macboary",
-            fr: "À propos de Macboary",
-            zh: "关于 Macboary",
-            ja: "Macboary について",
-            ko: "Macboary 정보",
-            ru: "О Macboary",
-            pt: "Sobre o Macboary",
-            it: "Informazioni su Macboary"
+            en: "About MacBoary",
+            de: "Über MacBoary",
+            es: "Acerca de MacBoary",
+            fr: "À propos de MacBoary",
+            zh: "关于 MacBoary",
+            ja: "MacBoary について",
+            ko: "MacBoary 정보",
+            ru: "О MacBoary",
+            pt: "Sobre o MacBoary",
+            it: "Informazioni su MacBoary"
         ),
         "alert_clear_title": LocalizedString(
             en: "Clear Clipboard History?",
@@ -581,16 +581,16 @@ struct Localization {
             it: "Posizione finestra"
         ),
         "quit": LocalizedString(
-            en: "Quit Macboary",
-            de: "Macboary beenden",
-            es: "Salir de Macboary",
-            fr: "Quitter Macboary",
-            zh: "退出 Macboary",
-            ja: "Macboary を終了",
-            ko: "Macboary 종료",
-            ru: "Выйти из Macboary",
-            pt: "Sair do Macboary",
-            it: "Esci da Macboary"
+            en: "Quit MacBoary",
+            de: "MacBoary beenden",
+            es: "Salir de MacBoary",
+            fr: "Quitter MacBoary",
+            zh: "退出 MacBoary",
+            ja: "MacBoary を終了",
+            ko: "MacBoary 종료",
+            ru: "Выйти из MacBoary",
+            pt: "Sair do MacBoary",
+            it: "Esci da MacBoary"
         ),
         "quick_paste": LocalizedString(
             en: "Enable Quick Paste Shortcuts",
@@ -761,16 +761,16 @@ struct Localization {
             it: "Accesso portachiavi richiesto"
         ),
         "keychain_access_message": LocalizedString(
-            en: "Macboary needs access to the Keychain to store the encryption key securely. Encryption will be disabled for now. You can enable it anytime in the settings.",
-            de: "Macboary benötigt Zugriff auf den Schlüsselbund, um den Verschlüsselungsschlüssel sicher zu speichern. Die Verschlüsselung wird vorerst deaktiviert. Sie können sie jederzeit in den Einstellungen aktivieren.",
-            es: "Macboary necesita acceso al llavero para guardar la clave de seguridad. La encriptación se desactivará por ahora.",
-            fr: "Macboary a besoin d'accéder au trousseau pour stocker la clé de sécurité. Le chiffrement est désactivé pour l'instant.",
-            zh: "Macboary 需要访问钥匙串以存储密钥。加密暂时禁用。",
-            ja: "Macboary はキーを保存するためにキーチェーンへのアクセスを必要とします。暗号化は一時的に無効になります。",
-            ko: "Macboary는 키를 저장하기 위해 키체인 접근이 필요합니다. 암호화는 현재 비활성화됩니다.",
-            ru: "Macboary нужен доступ к связке ключей. Шифрование пока отключено.",
-            pt: "Macboary precisa de acesso às Chaves. A criptografia será desativada por enquanto.",
-            it: "Macboary necessita accesso al portachiavi. Crittografia disabilitata per ora."
+            en: "MacBoary needs access to the Keychain to store the encryption key securely. Encryption will be disabled for now. You can enable it anytime in the settings.",
+            de: "MacBoary benötigt Zugriff auf den Schlüsselbund, um den Verschlüsselungsschlüssel sicher zu speichern. Die Verschlüsselung wird vorerst deaktiviert. Sie können sie jederzeit in den Einstellungen aktivieren.",
+            es: "MacBoary necesita acceso al llavero para guardar la clave de seguridad. La encriptación se desactivará por ahora.",
+            fr: "MacBoary a besoin d'accéder au trousseau pour stocker la clé de sécurité. Le chiffrement est désactivé pour l'instant.",
+            zh: "MacBoary 需要访问钥匙串以存储密钥。加密暂时禁用。",
+            ja: "MacBoary はキーを保存するためにキーチェーンへのアクセスを必要とします。暗号化は一時的に無効になります。",
+            ko: "MacBoary는 키를 저장하기 위해 키체인 접근이 필요합니다. 암호화는 현재 비활성화됩니다.",
+            ru: "MacBoary нужен доступ к связке ключей. Шифрование пока отключено.",
+            pt: "MacBoary precisa de acesso às Chaves. A criptografia será desativada por enquanto.",
+            it: "MacBoary necessita accesso al portachiavi. Crittografia disabilitata per ora."
         ),
         "use_custom_colors": LocalizedString(
             en: "Use Custom Colors",
@@ -1121,16 +1121,16 @@ struct Localization {
             it: "Abilitare crittografia?"
         ),
         "encrypt_opt_in_message": LocalizedString(
-            en: "Macboary can encrypt your clipboard history to protect sensitive information like passwords and credit cards.\n\nEncryption is optional but recommended for enhanced security. You can change this later in Settings.",
-            de: "Macboary kann Ihren Zwischenablage-Verlauf verschlüsseln, um sensible Informationen wie Passwörter und Kreditkarten zu schützen.\n\nVerschlüsselung ist optional, aber für erhöhte Sicherheit empfohlen. Sie können dies später in den Einstellungen ändern.",
-            es: "Macboary puede encriptar tu historial para proteger información sensible.\n\nLa encriptación es opcional pero recomendada.",
-            fr: "Macboary peut chiffrer votre historique pour protéger les informations sensibles.\n\nLe chiffrement est optionnel mais recommandé.",
-            zh: "Macboary 可以加密您的历史记录以保护敏感信息。\n\n加密是可选的，但建议启用。",
-            ja: "Macboary は履歴を暗号化して機密情報を保護できます。\n\n暗号化はオプションですが、推奨されます。",
-            ko: "Macboary는 기록을 암호화하여 정보를 보호할 수 있습니다.\n\n암호화는 선택 사항이지만 권장됩니다.",
-            ru: "Macboary может зашифровать историю для защиты данных.\n\nШифрование рекомендуется.",
-            pt: "Macboary pode criptografar seu histórico para proteger informações.\n\nA criptografia é recomendada.",
-            it: "Macboary può criptare la cronologia per proteggere i dati.\n\nLa crittografia è consigliata."
+            en: "MacBoary can encrypt your clipboard history to protect sensitive information like passwords and credit cards.\n\nEncryption is optional but recommended for enhanced security. You can change this later in Settings.",
+            de: "MacBoary kann Ihren Zwischenablage-Verlauf verschlüsseln, um sensible Informationen wie Passwörter und Kreditkarten zu schützen.\n\nVerschlüsselung ist optional, aber für erhöhte Sicherheit empfohlen. Sie können dies später in den Einstellungen ändern.",
+            es: "MacBoary puede encriptar tu historial para proteger información sensible.\n\nLa encriptación es opcional pero recomendada.",
+            fr: "MacBoary peut chiffrer votre historique pour protéger les informations sensibles.\n\nLe chiffrement est optionnel mais recommandé.",
+            zh: "MacBoary 可以加密您的历史记录以保护敏感信息。\n\n加密是可选的，但建议启用。",
+            ja: "MacBoary は履歴を暗号化して機密情報を保護できます。\n\n暗号化はオプションですが、推奨されます。",
+            ko: "MacBoary는 기록을 암호화하여 정보를 보호할 수 있습니다.\n\n암호화는 선택 사항이지만 권장됩니다.",
+            ru: "MacBoary может зашифровать историю для защиты данных.\n\nШифрование рекомендуется.",
+            pt: "MacBoary pode criptografar seu histórico para proteger informações.\n\nA criptografia é recomendada.",
+            it: "MacBoary può criptare la cronologia per proteggere i dati.\n\nLa crittografia è consigliata."
         ),
         "encrypt_opt_in_enable": LocalizedString(
             en: "Enable Encryption",
@@ -1169,16 +1169,16 @@ struct Localization {
             it: "Permesso richiesto"
         ),
         "accessibility_info_message": LocalizedString(
-            en: "Macboary needs Accessibility permission for automatic paste functionality.\n\nPlease grant permission in the next dialog.",
-            de: "Macboary benötigt Zugriff auf die Bedienungshilfen für die automatische Einfügefunktion.\n\nBitte gewähren Sie Zugriff im nächsten Dialog.",
-            es: "Macboary necesita permiso de accesibilidad para pegar automáticamente.\n\nPor favor, concede el permiso.",
-            fr: "Macboary a besoin de la permission d'accessibilité pour le collage automatique.\n\nVeuillez accorder la permission.",
-            zh: "Macboary 需要辅助功能权限以自动粘贴。\n\n请授予权限。",
-            ja: "Macboary は自動貼り付けのためにアクセシビリティ権限を必要とします。\n\n許可してください。",
-            ko: "Macboary는 자동 붙여넣기를 위해 권한이 필요합니다.\n\n권한을 허용해 주세요.",
-            ru: "Macboary нужен доступ для авто-вставки.\n\nПожалуйста, предоставьте доступ.",
-            pt: "Macboary precisa de permissão para colagem automática.\n\nPor favor, conceda.",
-            it: "Macboary necessita del permesso per l'incolla automatico.\n\nPer favore, concedi il permesso."
+            en: "MacBoary needs Accessibility permission for automatic paste functionality.\n\nPlease grant permission in the next dialog.",
+            de: "MacBoary benötigt Zugriff auf die Bedienungshilfen für die automatische Einfügefunktion.\n\nBitte gewähren Sie Zugriff im nächsten Dialog.",
+            es: "MacBoary necesita permiso de accesibilidad para pegar automáticamente.\n\nPor favor, concede el permiso.",
+            fr: "MacBoary a besoin de la permission d'accessibilité pour le collage automatique.\n\nVeuillez accorder la permission.",
+            zh: "MacBoary 需要辅助功能权限以自动粘贴。\n\n请授予权限。",
+            ja: "MacBoary は自動貼り付けのためにアクセシビリティ権限を必要とします。\n\n許可してください。",
+            ko: "MacBoary는 자동 붙여넣기를 위해 권한이 필요합니다.\n\n권한을 허용해 주세요.",
+            ru: "MacBoary нужен доступ для авто-вставки.\n\nПожалуйста, предоставьте доступ.",
+            pt: "MacBoary precisa de permissão para colagem automática.\n\nPor favor, conceda.",
+            it: "MacBoary necessita del permesso per l'incolla automatico.\n\nPer favore, concedi il permesso."
         )
     ]
 }
