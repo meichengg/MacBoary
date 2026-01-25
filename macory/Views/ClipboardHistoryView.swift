@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ClipboardHistoryView: View {
     @ObservedObject var clipboardManager = ClipboardManager.shared
+    @ObservedObject var settingsManager = SettingsManager.shared
     @ObservedObject var viewModel: HistoryViewModel
     var onSelect: (ClipboardItem) -> Void
     var onDelete: (ClipboardItem) -> Void
@@ -70,7 +71,7 @@ struct ClipboardHistoryView: View {
                     .disabled(clipboardManager.items.isEmpty)
                 }
                 .padding(10)
-                .background(Color(NSColor.controlBackgroundColor))
+                .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color : Color(NSColor.controlBackgroundColor))
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
@@ -78,7 +79,7 @@ struct ClipboardHistoryView: View {
                 )
             }
             .padding(12)
-            .background(Color(NSColor.windowBackgroundColor))
+            .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.3) : Color(NSColor.windowBackgroundColor))
             
             Divider()
             
@@ -139,10 +140,20 @@ struct ClipboardHistoryView: View {
             .foregroundColor(.secondary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color(NSColor.windowBackgroundColor))
+            .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.5) : Color(NSColor.windowBackgroundColor))
         }
         .frame(width: 400, height: 500)
-        .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
+        .background(
+            Group {
+                if settingsManager.useCustomColors {
+                    settingsManager.customBackgroundColor.color
+                } else {
+                    VisualEffectView(material: .popover, blendingMode: .behindWindow)
+                }
+            }
+        )
+        .preferredColorScheme(settingsManager.appTheme.colorScheme)
+        .tint(settingsManager.useCustomColors ? settingsManager.customAccentColor.color : nil)
     }
 }
 
@@ -274,7 +285,7 @@ struct ClipboardItemRow: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.accentColor : (isHovered ? Color.secondary.opacity(0.05) : Color.clear))
+                .fill(isSelected ? (settingsManager.useCustomColors ? settingsManager.customAccentColor.color : Color.accentColor) : (isHovered ? Color.secondary.opacity(0.05) : Color.clear))
         )
         .contentShape(Rectangle())
         .onTapGesture {

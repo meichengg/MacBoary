@@ -41,6 +41,35 @@ struct SettingsView: View {
                         Text(position.displayName).tag(position)
                     }
                 }
+                
+                Picker("Theme", selection: $settingsManager.appTheme) {
+                    ForEach(AppTheme.allCases, id: \.self) { theme in
+                        Text(theme.displayName).tag(theme)
+                    }
+                }
+                
+                Toggle("Use Custom Colors", isOn: $settingsManager.useCustomColors)
+                
+                if settingsManager.useCustomColors {
+                    ColorPicker("Accent Color", selection: Binding(
+                        get: { settingsManager.customAccentColor.color },
+                        set: { settingsManager.customAccentColor = ColorConfig(color: $0) }
+                    ))
+                    
+                    ColorPicker("Background Color", selection: Binding(
+                        get: { settingsManager.customBackgroundColor.color },
+                        set: { settingsManager.customBackgroundColor = ColorConfig(color: $0) }
+                    ))
+                    
+                    ColorPicker("Secondary Color", selection: Binding(
+                        get: { settingsManager.customSecondaryColor.color },
+                        set: { settingsManager.customSecondaryColor = ColorConfig(color: $0) }
+                    ))
+                    
+                    Text("Secondary color is used for search bar and footer")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             } header: {
                 Label("Appearance", systemImage: "paintbrush")
             }
@@ -124,6 +153,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 400, height: 600)
+        .preferredColorScheme(settingsManager.appTheme.colorScheme)
     }
 }
 

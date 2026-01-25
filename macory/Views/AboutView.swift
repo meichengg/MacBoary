@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct AboutView: View {
+    @ObservedObject var settingsManager = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
     
     private var appVersion: String {
@@ -61,6 +62,7 @@ struct AboutView: View {
         }
         .padding(30)
         .frame(width: 300, height: 350)
+        .preferredColorScheme(settingsManager.appTheme.colorScheme)
     }
 }
 
