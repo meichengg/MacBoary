@@ -114,6 +114,15 @@ struct SettingsView: View {
                     Text("30 \(settingsManager.localized("days"))").tag(30)
                     Text(settingsManager.localized("forever")).tag(-1)
                 }
+                
+                Toggle(isOn: $settingsManager.encryptionEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(settingsManager.localized("encrypt_clipboard"))
+                        Text(settingsManager.localized("encrypt_clipboard_desc"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             } header: {
                 Label(settingsManager.localized("storage"), systemImage: "clock")
             }
@@ -151,6 +160,38 @@ struct SettingsView: View {
             }
             
             Section {
+                // Keychain Access (only show if encryption is enabled)
+                if settingsManager.encryptionEnabled {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(settingsManager.localized("keychain_access"))
+
+                            Text(settingsManager.localized("keychain_desc"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if EncryptionService.shared.hasKeychainAccess() {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text(settingsManager.localized("granted"))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.red)
+                                Text(settingsManager.localized("denied"))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                
+                // Accessibility Access
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(settingsManager.localized("accessibility_access"))

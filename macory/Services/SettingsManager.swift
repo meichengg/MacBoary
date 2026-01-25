@@ -79,6 +79,15 @@ class SettingsManager: ObservableObject {
     private let textRetentionDaysKey = "textRetentionDays"
     private let imageRetentionDaysKey = "imageRetentionDays"
     private let maxHistoryItemsKey = "maxHistoryItems"
+    let encryptionEnabledKey = "encryptionEnabled"  // Public for first-launch dialog
+    
+    // For storing if accessibility info has been shown
+    private let accessibilityInfoShownKey = "accessibilityInfoShown"
+    var accessibilityInfoShown: Bool {
+        get { UserDefaults.standard.bool(forKey: accessibilityInfoShownKey) }
+        set { UserDefaults.standard.set(newValue, forKey: accessibilityInfoShownKey) }
+    }
+    
     private let appThemeKey = "appTheme"
     private let appLanguageKey = "appLanguage"
     private let useCustomColorsKey = "useCustomColors"
@@ -188,6 +197,14 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var encryptionEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(encryptionEnabled, forKey: encryptionEnabledKey)
+            // Notify that encryption setting changed
+            NotificationCenter.default.post(name: .encryptionSettingChanged, object: nil)
+        }
+    }
+    
     @Published var appTheme: AppTheme {
         didSet {
             UserDefaults.standard.set(appTheme.rawValue, forKey: appThemeKey)
@@ -216,6 +233,14 @@ class SettingsManager: ObservableObject {
         self.textRetentionDays = UserDefaults.standard.object(forKey: textRetentionDaysKey) as? Int ?? 7
         self.imageRetentionDays = UserDefaults.standard.object(forKey: imageRetentionDaysKey) as? Int ?? 1
         self.maxHistoryItems = UserDefaults.standard.object(forKey: maxHistoryItemsKey) as? Int ?? 500
+        
+        // Check if encryption preference has been set
+        if UserDefaults.standard.object(forKey: encryptionEnabledKey) == nil {
+            // Not set yet - will prompt user on first launch
+            self.encryptionEnabled = false
+        } else {
+            self.encryptionEnabled = UserDefaults.standard.bool(forKey: encryptionEnabledKey)
+        }
         
         self.launchAtLogin = SMAppService.mainApp.status == .enabled
         
@@ -315,4 +340,5 @@ class SettingsManager: ObservableObject {
 
 extension Notification.Name {
     static let languageDidChange = Notification.Name("languageDidChange")
+    static let encryptionSettingChanged = Notification.Name("encryptionSettingChanged")
 }

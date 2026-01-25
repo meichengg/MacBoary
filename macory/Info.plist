@@ -24,12 +24,12 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Macory needs permission to paste clipboard content automatically to the active application.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Marco Baeuml. All rights reserved.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>Macory needs permission to paste clipboard content automatically to the active application.</string>
 	<key>NSUserNotificationAlertStyle</key>
 	<string>alert</string>
 </dict>

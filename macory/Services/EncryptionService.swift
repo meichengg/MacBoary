@@ -13,11 +13,28 @@ class EncryptionService {
     static let shared = EncryptionService()
     
     private let keyIdentifier = "com.macory.encryption.key"
-    private var encryptionKey: SymmetricKey?
+    
+    // Lazy loaded key
+    private var _encryptionKey: SymmetricKey?
+    private var encryptionKey: SymmetricKey? {
+        // Only load if encryption is enabled or we need to access it explicitly
+        // Logic: if _encryptionKey is loaded, return it.
+        // If not, check if we should load it.
+        if let key = _encryptionKey {
+            return key
+        }
+        
+        // If encryption is enabled, try to load/create
+        if UserDefaults.standard.bool(forKey: "encryptionEnabled") {
+            _encryptionKey = loadOrCreateKey()
+            return _encryptionKey
+        }
+        
+        return nil
+    }
     
     private init() {
-        // Load or generate encryption key
-        encryptionKey = loadOrCreateKey()
+        // Do not load key in init to prevent early Keychain access prompt
     }
     
     // MARK: - Key Management
@@ -87,9 +104,21 @@ class EncryptionService {
         }
     }
     
+    // MARK: - Keychain Access Status
+    
+    func hasKeychainAccess() -> Bool {
+        // Try to access the key to verify Keychain access
+        return encryptionKey != nil
+    }
+    
     // MARK: - Encryption/Decryption
     
     func encrypt(_ string: String) -> String? {
+        // Check if encryption is enabled (direct UserDefaults access to avoid actor isolation issues)
+        guard UserDefaults.standard.bool(forKey: "encryptionEnabled") else {
+            return string // Return unencrypted if disabled
+        }
+        
         guard let key = encryptionKey,
               let data = string.data(using: .utf8) else {
             return nil
@@ -122,6 +151,11 @@ class EncryptionService {
     }
     
     func encryptData(_ data: Data) -> Data? {
+        // Check if encryption is enabled (direct UserDefaults access to avoid actor isolation issues)
+        guard UserDefaults.standard.bool(forKey: "encryptionEnabled") else {
+            return data // Return unencrypted if disabled
+        }
+        
         guard let key = encryptionKey else { return nil }
         
         do {

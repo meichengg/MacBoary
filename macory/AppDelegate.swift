@@ -25,10 +25,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Always try to register hotkey (will work if permission is granted)
         registerHotkey()
         
-        // Request permissions if needed (but don't block hotkey registration)
-        if !PermissionManager.shared.hasAccessibilityPermission {
-            PermissionManager.shared.checkAndRequestPermissions()
-        }
+        // Show permission requests in order: 1) Encryption, 2) Keychain, 3) Accessibility
+        showPermissionsSequentially()
         
         // Listen for permission changes
         NotificationCenter.default.addObserver(
@@ -106,5 +104,116 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Open the floating panel to show it's ready
         FloatingPanelController.shared.showPanel()
+    }
+    
+    // MARK: - Permission Sequence
+    @MainActor
+    private func showPermissionsSequentially() {
+        // Step 1: Show encryption opt-in dialog on first launch
+        // Using SettingManager constant for consistency
+        if UserDefaults.standard.object(forKey: SettingsManager.shared.encryptionEnabledKey) == nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.showEncryptionOptIn { encryptionEnabled in
+                    
+                    @MainActor func completeSetup() {
+                         // Step 3: Show info pop up about accessibility
+                        self.showAccessibilityInfo {
+                            // Step 4: Request accessibility permission
+                            self.requestAccessibilityIfNeeded()
+                            
+                            // Setup complete, allow main window
+                            FloatingPanelController.shared.setReady(true)
+                            
+                            // If permission is already present (unlikely but possible), show the panel now
+                            if PermissionManager.shared.hasAccessibilityPermission {
+                                FloatingPanelController.shared.showPanel()
+                            }
+                        }
+                    }
+                    
+                    // Step 2: Test Keychain access if encryption is enabled
+                    if encryptionEnabled {
+                        self.testKeychainAccess {
+                            completeSetup()
+                        }
+                    } else {
+                        completeSetup()
+                    }
+                }
+            }
+        } else {
+            // Not first launch, just request accessibility if needed
+            requestAccessibilityIfNeeded()
+            
+            // Not first launch, ready immediately
+            FloatingPanelController.shared.setReady(true)
+        }
+    }
+    
+    @MainActor
+    private func showEncryptionOptIn(completion: @escaping (Bool) -> Void) {
+        let settings = SettingsManager.shared
+        let alert = NSAlert()
+        alert.messageText = settings.localized("encrypt_opt_in_title")
+        alert.informativeText = settings.localized("encrypt_opt_in_message")
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: settings.localized("encrypt_opt_in_enable"))
+        alert.addButton(withTitle: settings.localized("encrypt_opt_in_disable"))
+        
+        let response = alert.runModal()
+        // Determine enabling based on response
+        let enabled = (response == .alertFirstButtonReturn)
+        
+        // Update setting - this might trigger Keychain access via EncryptionService due to didSet if enabled is true
+        // But we want to control that.
+        // If we set it here, EncryptionService will see it true.
+        SettingsManager.shared.encryptionEnabled = enabled
+        
+        completion(enabled)
+    }
+    
+    @MainActor
+    private func showAccessibilityInfo(completion: @escaping () -> Void) {
+        // Only show if we don't have permission yet and haven't shown it before
+        if !PermissionManager.shared.hasAccessibilityPermission && !SettingsManager.shared.accessibilityInfoShown {
+            let settings = SettingsManager.shared
+            let alert = NSAlert()
+            alert.messageText = settings.localized("accessibility_info_title")
+            alert.informativeText = settings.localized("accessibility_info_message")
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "OK")
+            
+            alert.runModal()
+            SettingsManager.shared.accessibilityInfoShown = true
+        }
+        completion()
+    }
+    
+    @MainActor
+    private func testKeychainAccess(completion: @escaping () -> Void) {
+        // Test Keychain access by attempting to access the encryption key
+        DispatchQueue.global(qos: .userInitiated).async {
+            let hasAccess = EncryptionService.shared.hasKeychainAccess()
+            
+            DispatchQueue.main.async {
+                if !hasAccess {
+                    let settings = SettingsManager.shared
+                    let alert = NSAlert()
+                    alert.messageText = settings.localized("keychain_access_title")
+                    alert.informativeText = settings.localized("keychain_access_message")
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
+                completion()
+            }
+        }
+    }
+    
+    @MainActor
+    private func requestAccessibilityIfNeeded() {
+        if !PermissionManager.shared.hasAccessibilityPermission {
+            PermissionManager.shared.checkAndRequestPermissions()
+        }
     }
 }

@@ -73,10 +73,15 @@ struct Localization {
         // Settings - Permissions
         "accessibility_access": "Accessibility Access",
         "accessibility_desc": "Required for automatic paste",
+        "keychain_access": "Keychain Access",
+        "keychain_desc": "Required for encryption key storage",
         "granted": "Granted",
+        "denied": "Denied",
         "grant_access": "Grant Access",
         "permission_granted_notification": "Accessibility permission granted! Automatic paste is now enabled.",
         "permission_warning": "Accessibility permission required for automatic paste.",
+        "keychain_access_title": "Keychain Access Required",
+        "keychain_access_message": "Macory needs access to the Keychain to store the encryption key securely. If access is denied, encryption will not work properly.",
 
         // Settings - Appearance
         "use_custom_colors": "Use Custom Colors",
@@ -108,7 +113,19 @@ struct Localization {
         "keep_images": "Keep images for",
         "days": "days",
         "forever": "Forever",
-        "disabled": "Disabled"
+        "disabled": "Disabled",
+        
+        // Settings - Encryption
+        "encrypt_clipboard": "Encrypt Clipboard History",
+        "encrypt_clipboard_desc": "Uses AES-256 encryption to protect sensitive data",
+        "encrypt_opt_in_title": "Enable Clipboard Encryption?",
+        "encrypt_opt_in_message": "Macory can encrypt your clipboard history to protect sensitive information like passwords and credit cards.\n\nEncryption is optional but recommended for enhanced security. You can change this later in Settings.",
+        "encrypt_opt_in_enable": "Enable Encryption",
+        "encrypt_opt_in_disable": "Skip",
+        
+        // Settings - Permission Info
+        "accessibility_info_title": "Accessibility Permission Required",
+        "accessibility_info_message": "Macory needs Accessibility permission to:\n1. Detect when you copy text/images\n2. Paste selected items into other apps\n\nPlease grant permission in the next dialog."
     ]
     
     static let de: [String: String] = [
@@ -176,10 +193,15 @@ struct Localization {
         // Settings - Permissions
         "accessibility_access": "Bedienungshilfen-Zugriff",
         "accessibility_desc": "Erforderlich für automatisches Einfügen",
+        "keychain_access": "Schlüsselbund-Zugriff",
+        "keychain_desc": "Erforderlich für Verschlüsselungsschlüssel-Speicherung",
         "granted": "Zugriff erteilt",
+        "denied": "Verweigert",
         "grant_access": "Zugriff gewähren",
         "permission_granted_notification": "Zugriffsberechtigung erteilt! Automatisches Einfügen ist jetzt aktiviert.",
         "permission_warning": "Bedienungshilfen-Zugriff erforderlich für automatisches Einfügen.",
+        "keychain_access_title": "Schlüsselbund-Zugriff erforderlich",
+        "keychain_access_message": "Macory benötigt Zugriff auf den Schlüsselbund, um den Verschlüsselungsschlüssel sicher zu speichern. Wenn der Zugriff verweigert wird, funktioniert die Verschlüsselung nicht ordnungsgemäß.",
 
         // Settings - Appearance
         "use_custom_colors": "Benutzerdefinierte Farben",
@@ -211,7 +233,26 @@ struct Localization {
         "keep_images": "Bilder behalten für",
         "days": "Tage",
         "forever": "Für immer",
-        "disabled": "Deaktiviert"
+        "disabled": "Deaktiviert",
+        
+        // Settings - Encryption
+        "encrypt_clipboard": "Zwischenablage verschlüsseln",
+        "encrypt_clipboard_desc": "Verwendet AES-256-Verschlüsselung zum Schutz sensibler Daten",
+        "encrypt_opt_in_title": "Zwischenablage-Verschlüsselung aktivieren?",
+        "encrypt_opt_in_message": "Macory kann Ihren Zwischenablage-Verlauf verschlüsseln, um sensible Informationen wie Passwörter und Kreditkarten zu schützen.\n\nVerschlüsselung ist optional, aber für erhöhte Sicherheit empfohlen. Sie können dies später in den Einstellungen ändern.",
+        "encrypt_opt_in_enable": "Verschlüsselung aktivieren",
+        "encrypt_opt_in_disable": "Überspringen",
+        
+        // Settings - Permissions
+        "keychain_access": "Schlüsselbund-Zugriff",
+        "keychain_desc": "Erforderlich für Verschlüsselungsschlüssel-Speicherung",
+        "denied": "Verweigert",
+        "keychain_access_title": "Schlüsselbund-Zugriff erforderlich",
+        "keychain_access_message": "Macory benötigt Zugriff auf den Schlüsselbund, um den Verschlüsselungsschlüssel sicher zu speichern. Wenn der Zugriff verweigert wird, funktioniert die Verschlüsselung nicht ordnungsgemäß.",
+
+        // Settings - Permission Info
+        "accessibility_info_title": "Zugriffsberechtigung erforderlich",
+        "accessibility_info_message": "Macory benötigt Zugriff auf die Bedienungshilfen, um:\n1. Zu erkennen, wenn Sie Text/Bilder kopieren\n2. Ausgewählte Elemente in andere Apps einzufügen\n\nBitte gewähren Sie Zugriff im nächsten Dialog."
     ]
     
     static func string(_ key: String, language: AppLanguage) -> String {
@@ -315,10 +356,15 @@ struct Localization {
         // Settings - Permissions
         "accessibility_access": "Acceso de accesibilidad",
         "accessibility_desc": "Requerido para pegar automáticamente",
+        "keychain_access": "Acceso al llavero",
+        "keychain_desc": "Requerido para almacenar la clave de cifrado",
         "granted": "Concedido",
+        "denied": "Denegado",
         "grant_access": "Conceder acceso",
         "permission_granted_notification": "¡Permiso de accesibilidad concedido! El pegado automático está ahora activado.",
         "permission_warning": "Permiso de accesibilidad requerido para pegar automáticamente.",
+        "keychain_access_title": "Acceso al llavero requerido",
+        "keychain_access_message": "Macory necesita acceso al Llavero para almacenar la clave de cifrado de forma segura. Si se niega el acceso, el cifrado no funcionará correctamente.",
 
         // Settings - Appearance
         "use_custom_colors": "Colores personalizados",
@@ -350,7 +396,26 @@ struct Localization {
         "keep_images": "Guardar imágenes por",
         "days": "días",
         "forever": "Para siempre",
-        "disabled": "Desactivado"
+        "disabled": "Desactivado",
+        
+        // Settings - Encryption
+        "encrypt_clipboard": "Cifrar historial del portapapeles",
+        "encrypt_clipboard_desc": "Usa cifrado AES-256 para proteger datos sensibles",
+        "encrypt_opt_in_title": "¿Activar cifrado del portapapeles?",
+        "encrypt_opt_in_message": "Macory puede cifrar tu historial del portapapeles para proteger información sensible como contraseñas y tarjetas de crédito.\n\nEl cifrado es opcional pero recomendado para mayor seguridad. Puedes cambiarlo más tarde en Ajustes.",
+        "encrypt_opt_in_enable": "Activar cifrado",
+        "encrypt_opt_in_disable": "Omitir",
+
+        // Settings - Permissions
+        "keychain_access": "Acceso al llavero",
+        "keychain_desc": "Requerido para almacenar la clave de cifrado",
+        "denied": "Denegado",
+        "keychain_access_title": "Acceso al llavero requerido",
+        "keychain_access_message": "Macory necesita acceso al Llavero para almacenar la clave de cifrado de forma segura. Si se niega el acceso, el cifrado no funcionará correctamente.",
+
+        // Settings - Permission Info
+        "accessibility_info_title": "Permiso de accesibilidad requerido",
+        "accessibility_info_message": "Macory necesita permiso de Accesibilidad para:\n1. Detectar cuando copia texto/imágenes\n2. Pegar elementos seleccionados en otras aplicaciones\n\nPor favor, conceda permiso en el siguiente diálogo."
     ]
 
     static let fr: [String: String] = [
@@ -418,10 +483,15 @@ struct Localization {
         // Settings - Permissions
         "accessibility_access": "Accès d'accessibilité",
         "accessibility_desc": "Requis pour le collage automatique",
+        "keychain_access": "Accès au trousseau",
+        "keychain_desc": "Requis pour le stockage de la clé de chiffrement",
         "granted": "Accordé",
+        "denied": "Refusé",
         "grant_access": "Accorder l'accès",
         "permission_granted_notification": "Autorisation d'accessibilité accordée ! Le collage automatique est maintenant activé.",
         "permission_warning": "Autorisation d'accessibilité requise pour le collage automatique.",
+        "keychain_access_title": "Accès au trousseau requis",
+        "keychain_access_message": "Macory a besoin d'accéder au Trousseau pour stocker la clé de chiffrement en toute sécurité. Si l'accès est refusé, le chiffrement ne fonctionnera pas correctement.",
 
         // Settings - Appearance
         "use_custom_colors": "Couleurs personnalisées",
@@ -453,7 +523,15 @@ struct Localization {
         "keep_images": "Garder les images pour",
         "days": "jours",
         "forever": "Pour toujours",
-        "disabled": "Désactivé"
+        "disabled": "Désactivé",
+        
+        // Settings - Encryption
+        "encrypt_clipboard": "Chiffrer l'historique",
+        "encrypt_clipboard_desc": "Utilise le chiffrement AES-256 pour protéger les données sensibles",
+        "encrypt_opt_in_title": "Activer le chiffrement du presse-papiers ?",
+        "encrypt_opt_in_message": "Macory peut chiffrer votre historique du presse-papiers pour protéger les informations sensibles comme les mots de passe et les cartes de crédit.\n\nLe chiffrement est optionnel mais recommandé pour une sécurité renforcée. Vous pouvez le modifier plus tard dans les paramètres.",
+        "encrypt_opt_in_enable": "Activer le chiffrement",
+        "encrypt_opt_in_disable": "Ignorer"
     ]
 
     static let zh: [String: String] = [
@@ -519,10 +597,15 @@ struct Localization {
         // Settings - Permissions
         "accessibility_access": "辅助功能权限",
         "accessibility_desc": "自动粘贴功能需要",
+        "keychain_access": "钥匙串访问",
+        "keychain_desc": "加密密钥存储需要",
         "granted": "已授权",
+        "denied": "已拒绝",
         "grant_access": "授权",
         "permission_granted_notification": "辅助功能权限已授予！自动粘贴现已启用。",
         "permission_warning": "自动粘贴功能需要辅助功能权限。",
+        "keychain_access_title": "需要钥匙串访问权限",
+        "keychain_access_message": "Macory需要访问钥匙串以安全存储加密密钥。如果访问被拒绝，加密功能将无法正常工作。",
 
         // Settings - Appearance
         "use_custom_colors": "使用自定义颜色",
@@ -554,7 +637,15 @@ struct Localization {
         "keep_images": "图片保留",
         "days": "天",
         "forever": "永久",
-        "disabled": "禁用"
+        "disabled": "禁用",
+        
+        // Settings - Encryption
+        "encrypt_clipboard": "加密剪贴板历史",
+        "encrypt_clipboard_desc": "使用AES-256加密保护敏感数据",
+        "encrypt_opt_in_title": "启用剪贴板加密？",
+        "encrypt_opt_in_message": "Macory可以加密您的剪贴板历史以保护密码和信用卡等敏感信息。\n\n加密是可选的，但建议启用以增强安全性。您可以稍后在设置中更改。",
+        "encrypt_opt_in_enable": "启用加密",
+        "encrypt_opt_in_disable": "跳过"
     ]
 
     static let hi: [String: String] = [
@@ -622,10 +713,15 @@ struct Localization {
         // Settings - Permissions
         "accessibility_access": "एक्सेसिबिलिटी एक्सेस",
         "accessibility_desc": "स्वचालित पेस्ट के लिए आवश्यक",
+        "keychain_access": "कीचेन एक्सेस",
+        "keychain_desc": "एन्क्रिप्शन कुंजी संग्रहण के लिए आवश्यक",
         "granted": "दी गई",
+        "denied": "अस्वीकृत",
         "grant_access": "एक्सेस दें",
         "permission_granted_notification": "सुलभता अनुमति दी गई! स्वचालित पेस्ट अब सक्षम है।",
         "permission_warning": "स्वचालित पेस्ट के लिए एक्सेसिबिलिटी अनुमति आवश्यक है।",
+        "keychain_access_title": "कीचेन एक्सेस आवश्यक",
+        "keychain_access_message": "Macory को एन्क्रिप्शन कुंजी को सुरक्षित रूप से संग्रहीत करने के लिए कीचेन तक पहुंच की आवश्यकता है। यदि पहुंच से इनकार किया जाता है, तो एन्क्रिप्शन ठीक से काम नहीं करेगा।",
 
         // Settings - Appearance
         "use_custom_colors": "कस्टम रंग उपयोग करें",
@@ -657,6 +753,14 @@ struct Localization {
         "keep_images": "छवियां रखें",
         "days": "दिन",
         "forever": "हमेशा के लिए",
-        "disabled": "अक्षम"
+        "disabled": "अक्षम",
+        
+        // Settings - Encryption
+        "encrypt_clipboard": "क्लिपबोर्ड इतिहास एन्क्रिप्ट करें",
+        "encrypt_clipboard_desc": "संवेदनशील डेटा की सुरक्षा के लिए AES-256 एन्क्रिप्शन का उपयोग करता है",
+        "encrypt_opt_in_title": "क्लिपबोर्ड एन्क्रिप्शन सक्षम करें?",
+        "encrypt_opt_in_message": "Macory पासवर्ड और क्रेडिट कार्ड जैसी संवेदनशील जानकारी की सुरक्षा के लिए आपके क्लिपबोर्ड इतिहास को एन्क्रिप्ट कर सकता है।\n\nएन्क्रिप्शन वैकल्पिक है लेकिन बेहतर सुरक्षा के लिए अनुशंसित है। आप इसे बाद में सेटिंग्स में बदल सकते हैं।",
+        "encrypt_opt_in_enable": "एन्क्रिप्शन सक्षम करें",
+        "encrypt_opt_in_disable": "छोड़ें"
     ]
 }

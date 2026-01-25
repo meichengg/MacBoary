@@ -81,6 +81,7 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
     
     let viewModel = HistoryViewModel()
     var isVisible = false
+    private var isReady = false // Gatekeeper for app startup
     
     private var eventMonitor: Any?
     private var keyMonitor: Any?
@@ -96,6 +97,10 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         hostingView = nil
     }
     
+    @MainActor func setReady(_ ready: Bool) {
+        self.isReady = ready
+    }
+    
     @MainActor private var filteredItems: [ClipboardItem] {
         let items = ClipboardManager.shared.items
         if viewModel.searchText.isEmpty {
@@ -107,6 +112,12 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
     }
     
     @MainActor func showPanel() {
+        // Don't show panel if app is not ready (setup in progress)
+        if !isReady {
+            print("App not ready yet, supressing showPanel")
+            return
+        }
+
         // Don't show panel while permission request is in progress
         if PermissionManager.shared.isRequestingPermission {
             return
