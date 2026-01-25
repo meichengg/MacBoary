@@ -20,8 +20,8 @@ class HotkeyManager: ObservableObject {
     private init() {}
     
     func register(shortcut: GlobalKeyboardShortcut, callback: @escaping () -> Void) {
-        self.callback = callback
         unregister()
+        self.callback = callback
         
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         
