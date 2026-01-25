@@ -81,7 +81,7 @@ struct Localization {
         "permission_granted_notification": "Accessibility permission granted! Automatic paste is now enabled.",
         "permission_warning": "Accessibility permission required for automatic paste.",
         "keychain_access_title": "Keychain Access Required",
-        "keychain_access_message": "Macory needs access to the Keychain to store the encryption key securely. If access is denied, encryption will not work properly.",
+        "keychain_access_message": "Macory needs access to the Keychain to store the encryption key securely. Encryption will be disabled for now. You can enable it anytime in the settings.",
 
         // Settings - Appearance
         "use_custom_colors": "Use Custom Colors",
@@ -201,7 +201,7 @@ struct Localization {
         "permission_granted_notification": "Zugriffsberechtigung erteilt! Automatisches Einfügen ist jetzt aktiviert.",
         "permission_warning": "Bedienungshilfen-Zugriff erforderlich für automatisches Einfügen.",
         "keychain_access_title": "Schlüsselbund-Zugriff erforderlich",
-        "keychain_access_message": "Macory benötigt Zugriff auf den Schlüsselbund, um den Verschlüsselungsschlüssel sicher zu speichern. Wenn der Zugriff verweigert wird, funktioniert die Verschlüsselung nicht ordnungsgemäß.",
+        "keychain_access_message": "Macory benötigt Zugriff auf den Schlüsselbund, um den Verschlüsselungsschlüssel sicher zu speichern. Die Verschlüsselung wird vorerst deaktiviert. Sie können sie jederzeit in den Einstellungen aktivieren.",
 
         // Settings - Appearance
         "use_custom_colors": "Benutzerdefinierte Farben",
@@ -243,13 +243,6 @@ struct Localization {
         "encrypt_opt_in_enable": "Verschlüsselung aktivieren",
         "encrypt_opt_in_disable": "Überspringen",
         
-        // Settings - Permissions
-        "keychain_access": "Schlüsselbund-Zugriff",
-        "keychain_desc": "Erforderlich für Verschlüsselungsschlüssel-Speicherung",
-        "denied": "Verweigert",
-        "keychain_access_title": "Schlüsselbund-Zugriff erforderlich",
-        "keychain_access_message": "Macory benötigt Zugriff auf den Schlüsselbund, um den Verschlüsselungsschlüssel sicher zu speichern. Wenn der Zugriff verweigert wird, funktioniert die Verschlüsselung nicht ordnungsgemäß.",
-
         // Settings - Permission Info
         "accessibility_info_title": "Zugriffsberechtigung erforderlich",
         "accessibility_info_message": "Macory benötigt Zugriff auf die Bedienungshilfen, um:\n1. Zu erkennen, wenn Sie Text/Bilder kopieren\n2. Ausgewählte Elemente in andere Apps einzufügen\n\nBitte gewähren Sie Zugriff im nächsten Dialog."
@@ -405,13 +398,6 @@ struct Localization {
         "encrypt_opt_in_message": "Macory puede cifrar tu historial del portapapeles para proteger información sensible como contraseñas y tarjetas de crédito.\n\nEl cifrado es opcional pero recomendado para mayor seguridad. Puedes cambiarlo más tarde en Ajustes.",
         "encrypt_opt_in_enable": "Activar cifrado",
         "encrypt_opt_in_disable": "Omitir",
-
-        // Settings - Permissions
-        "keychain_access": "Acceso al llavero",
-        "keychain_desc": "Requerido para almacenar la clave de cifrado",
-        "denied": "Denegado",
-        "keychain_access_title": "Acceso al llavero requerido",
-        "keychain_access_message": "Macory necesita acceso al Llavero para almacenar la clave de cifrado de forma segura. Si se niega el acceso, el cifrado no funcionará correctamente.",
 
         // Settings - Permission Info
         "accessibility_info_title": "Permiso de accesibilidad requerido",

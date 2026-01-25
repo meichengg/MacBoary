@@ -197,6 +197,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             DispatchQueue.main.async {
                 if !hasAccess {
+                    // Disable encryption if we can't access keychain
+                    SettingsManager.shared.encryptionEnabled = false
+                    
                     let settings = SettingsManager.shared
                     let alert = NSAlert()
                     alert.messageText = settings.localized("keychain_access_title")

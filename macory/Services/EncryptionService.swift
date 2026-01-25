@@ -39,7 +39,7 @@ class EncryptionService {
     
     // MARK: - Key Management
     
-    private func loadOrCreateKey() -> SymmetricKey {
+    private func loadOrCreateKey() -> SymmetricKey? {
         // Try to load existing key from Keychain
         if let existingKey = loadKeyFromKeychain() {
             return existingKey
@@ -47,8 +47,11 @@ class EncryptionService {
         
         // Generate new key if none exists
         let newKey = SymmetricKey(size: .bits256)
-        saveKeyToKeychain(newKey)
-        return newKey
+        if saveKeyToKeychain(newKey) {
+            return newKey
+        }
+        
+        return nil
     }
     
     private func loadKeyFromKeychain() -> SymmetricKey? {
@@ -69,7 +72,7 @@ class EncryptionService {
         return SymmetricKey(data: keyData)
     }
     
-    private func saveKeyToKeychain(_ key: SymmetricKey) {
+    private func saveKeyToKeychain(_ key: SymmetricKey) -> Bool {
         let keyData = key.withUnsafeBytes { Data($0) }
         
         // Create access control that allows the app to access without prompting
@@ -80,7 +83,7 @@ class EncryptionService {
             nil
         ) else {
             print("Failed to create access control")
-            return
+            return false
         }
         
         let query: [String: Any] = [
@@ -101,7 +104,10 @@ class EncryptionService {
         let status = SecItemAdd(query as CFDictionary, nil)
         if status != errSecSuccess {
             print("Failed to save key to keychain: \(status)")
+            return false
         }
+        
+        return true
     }
     
     // MARK: - Keychain Access Status
