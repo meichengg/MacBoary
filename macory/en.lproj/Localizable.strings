@@ -1,0 +1,47 @@
+/* 
+  Localizable.strings
+  macory
+
+  Created by Marco Baeuml on 25/01/2026.
+*/
+
+// General
+"search_placeholder" = "Search history...";
+"clear_all" = "Clear All (Option+Click to include pinned)";
+"no_history" = "No clipboard history";
+"no_results" = "No results found";
+"copy_start" = "Copy something to get started";
+"items_count" = "%d items";
+"results_count" = "%d results";
+"footer_help" = "↑↓ select  ⏎ paste  ⌘P pin  ⌘⌫ delete";
+"loading_image" = "Loading image...";
+"pin" = "Pin (⌘P)";
+"unpin" = "Unpin (⌘P)";
+"delete" = "Delete (⌘⌫)";
+
+// Settings - Headers
+"general" = "General";
+"appearance" = "Appearance";
+"storage" = "Storage";
+"shortcuts" = "Shortcuts";
+"about" = "About";
+
+// Settings - General
+"language" = "Language";
+"launch_login" = "Launch at login";
+"show_dock" = "Show in Dock";
+"window_position" = "Window Position";
+"quit" = "Quit Macory";
+
+// Settings - Appearance
+"use_custom_colors" = "Use Custom Colors";
+"accent_color" = "Accent Color";
+"background_color" = "Background Color";
+"secondary_color" = "Secondary Color";
+"secondary_color_desc" = "Secondary color is used for search bar and footer";
+
+// Settings - Storage
+"retention" = "Retention";
+"keep_text" = "Keep text for";
+"keep_images" = "Keep images for";
+"days" = "days";

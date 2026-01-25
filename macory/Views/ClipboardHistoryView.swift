@@ -38,7 +38,7 @@ struct ClipboardHistoryView: View {
                         .font(.system(size: 16))
                         .foregroundColor(.secondary)
                     
-                    TextField("Search history...", text: $viewModel.searchText)
+                    TextField(settingsManager.localized("search_placeholder"), text: $viewModel.searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 15))
                         .focused($isSearchFocused)
@@ -70,7 +70,7 @@ struct ClipboardHistoryView: View {
                                 .foregroundColor(.secondary)
                         }
                         .buttonStyle(.plain)
-                        .help("Clear All (Option+Click to include pinned)")
+                        .help(settingsManager.localized("clear_all"))
                     }
                 }
                 .padding(.horizontal, 16)
@@ -86,11 +86,11 @@ struct ClipboardHistoryView: View {
                     Image(systemName: viewModel.searchText.isEmpty ? "clipboard" : "magnifyingglass")
                         .font(.system(size: 40))
                         .foregroundColor(.secondary.opacity(0.5))
-                    Text(viewModel.searchText.isEmpty ? "No clipboard history" : "No results found")
+                    Text(viewModel.searchText.isEmpty ? settingsManager.localized("no_history") : settingsManager.localized("no_results"))
                         .font(.headline)
                         .foregroundColor(.secondary)
                     if viewModel.searchText.isEmpty {
-                        Text("Copy something to get started")
+                        Text(settingsManager.localized("copy_start"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -128,9 +128,9 @@ struct ClipboardHistoryView: View {
             
             // Footer
             HStack {
-                Text(viewModel.searchText.isEmpty ? "\(clipboardManager.items.count) items" : "\(filteredItems.count) results")
+                Text(viewModel.searchText.isEmpty ? String(format: settingsManager.localized("items_count"), clipboardManager.items.count) : String(format: settingsManager.localized("results_count"), filteredItems.count))
                 Spacer()
-                Text("↑↓ select  ⏎ paste  ⌘P pin  ⌘⌫ delete")
+                Text(settingsManager.localized("footer_help"))
             }
             .font(.system(size: 10))
             .foregroundColor(.secondary.opacity(0.6))
@@ -216,7 +216,7 @@ struct ClipboardItemRow: View {
                         HStack {
                             ProgressView()
                                 .controlSize(.small)
-                            Text("Loading image...")
+                            Text(settingsManager.localized("loading_image"))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -261,7 +261,7 @@ struct ClipboardItemRow: View {
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
-                        .help(item.isPinned ? "Unpin (⌘P)" : "Pin (⌘P)")
+                        .help(item.isPinned ? settingsManager.localized("unpin") : settingsManager.localized("pin"))
                     }
                     
                     Button(action: onDelete) {
@@ -273,7 +273,7 @@ struct ClipboardItemRow: View {
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .help("Delete (⌘⌫)")
+                    .help(settingsManager.localized("delete"))
                 }
             }
         }

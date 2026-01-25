@@ -15,32 +15,39 @@ struct SettingsView: View {
     
     var body: some View {
         Form {
+            // General
             Section {
+                Picker(settingsManager.localized("language"), selection: $settingsManager.appLanguage) {
+                    ForEach(AppLanguage.allCases, id: \.self) { lang in
+                        Text(lang.displayName).tag(lang)
+                    }
+                }
+                
                 Toggle(isOn: $settingsManager.showDockIcon) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Show in Dock")
+                        Text(settingsManager.localized("show_dock"))
                         Text("If disabled, app runs in menu bar only")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
                 
-                Toggle("Show Pin Button", isOn: $settingsManager.showPinButton)
-                
-                Toggle(isOn: $settingsManager.storeImages) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Store Images")
-                        Text("Save copied images to history")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                Button(settingsManager.localized("quit")) {
+                    NSApplication.shared.terminate(nil)
                 }
-                
-                Picker("Popup Position", selection: $settingsManager.popupPosition) {
+            } header: {
+                Label(settingsManager.localized("general"), systemImage: "gear")
+            }
+            
+            // Appearance
+            Section {
+                Picker(settingsManager.localized("window_position"), selection: $settingsManager.popupPosition) {
                     ForEach(PopupPosition.allCases, id: \.self) { position in
                         Text(position.displayName).tag(position)
                     }
                 }
+                
+                Toggle(settingsManager.localized("pin"), isOn: $settingsManager.showPinButton)
                 
                 Picker("Theme", selection: $settingsManager.appTheme) {
                     ForEach(AppTheme.allCases, id: \.self) { theme in
@@ -48,55 +55,59 @@ struct SettingsView: View {
                     }
                 }
                 
-                Toggle("Use Custom Colors", isOn: $settingsManager.useCustomColors)
+                Toggle(settingsManager.localized("use_custom_colors"), isOn: $settingsManager.useCustomColors)
                 
                 if settingsManager.useCustomColors {
-                    ColorPicker("Accent Color", selection: Binding(
+                    ColorPicker(settingsManager.localized("accent_color"), selection: Binding(
                         get: { settingsManager.customAccentColor.color },
                         set: { settingsManager.customAccentColor = ColorConfig(color: $0) }
                     ))
                     
-                    ColorPicker("Background Color", selection: Binding(
+                    ColorPicker(settingsManager.localized("background_color"), selection: Binding(
                         get: { settingsManager.customBackgroundColor.color },
                         set: { settingsManager.customBackgroundColor = ColorConfig(color: $0) }
                     ))
                     
-                    ColorPicker("Secondary Color", selection: Binding(
+                    ColorPicker(settingsManager.localized("secondary_color"), selection: Binding(
                         get: { settingsManager.customSecondaryColor.color },
                         set: { settingsManager.customSecondaryColor = ColorConfig(color: $0) }
                     ))
                     
-                    Text("Secondary color is used for search bar and footer")
+                    Text(settingsManager.localized("secondary_color_desc"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             } header: {
-                Label("Appearance", systemImage: "paintbrush")
+                Label(settingsManager.localized("appearance"), systemImage: "paintbrush")
             }
             
+            // Storage
             Section {
-                Picker("Keep text history for", selection: $settingsManager.textRetentionDays) {
-                    Text("1 Day").tag(1)
-                    Text("3 Days").tag(3)
-                    Text("7 Days").tag(7)
-                    Text("30 Days").tag(30)
+                Toggle(isOn: $settingsManager.storeImages) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(settingsManager.localized("keep_images"))
+                        Text("Save copied images to history")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
-                Picker("Keep image history for", selection: $settingsManager.imageRetentionDays) {
-                    Text("1 Day").tag(1)
-                    Text("3 Days").tag(3)
-                    Text("7 Days").tag(7)
-                    Text("30 Days").tag(30)
+                Picker(settingsManager.localized("retention"), selection: $settingsManager.textRetentionDays) {
+                    Text("1 \(settingsManager.localized("days"))").tag(1)
+                    Text("3 \(settingsManager.localized("days"))").tag(3)
+                    Text("7 \(settingsManager.localized("days"))").tag(7)
+                    Text("30 \(settingsManager.localized("days"))").tag(30)
                 }
             } header: {
-                Label("History", systemImage: "clock")
+                Label(settingsManager.localized("storage"), systemImage: "clock")
             }
             
+            // Shortcuts
             Section {
                 Toggle(isOn: $settingsManager.quickPasteEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Enable Quick Paste Shortcuts")
-                        Text("Use ⌘1-9 to paste the first 9 items")
+                        Text(settingsManager.localized("quick_paste"))
+                        Text(settingsManager.localized("quick_paste_desc"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -104,8 +115,8 @@ struct SettingsView: View {
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Global Hotkey")
-                        Button("Reset to Default (⌘⇧V)") {
+                        Text(settingsManager.localized("global_hotkey"))
+                        Button(settingsManager.localized("reset_default")) {
                             settingsManager.shortcut = GlobalKeyboardShortcut.defaultShortcut
                             NotificationCenter.default.post(name: .shortcutChanged, object: nil)
                         }
@@ -120,15 +131,15 @@ struct SettingsView: View {
                         .frame(width: 120, height: 24)
                 }
             } header: {
-                Label("Keyboard", systemImage: "keyboard")
+                Label(settingsManager.localized("shortcuts"), systemImage: "keyboard")
             }
             
             Section {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Accessibility Access")
+                        Text(settingsManager.localized("accessibility_access"))
 
-                        Text("Required for global hotkey and pasting")
+                        Text(settingsManager.localized("accessibility_desc"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -137,22 +148,22 @@ struct SettingsView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.green)
-                            Text("Granted")
+                            Text(settingsManager.localized("granted"))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     } else {
-                        Button("Grant Access") {
+                        Button(settingsManager.localized("grant_access")) {
                             PermissionManager.shared.openAccessibilityPreferences()
                         }
                     }
                 }
             } header: {
-                Label("Permissions", systemImage: "lock.shield")
+                Label(settingsManager.localized("permissions"), systemImage: "lock.shield")
             }
         }
         .formStyle(.grouped)
-        .frame(width: 400, height: 600)
+        .frame(width: 450, height: 600)
         .preferredColorScheme(settingsManager.appTheme.colorScheme)
     }
 }

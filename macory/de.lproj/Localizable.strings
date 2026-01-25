@@ -1,0 +1,47 @@
+/* 
+  Localizable.strings
+  macory
+
+  Created by Marco Baeuml on 25/01/2026.
+*/
+
+// General
+"search_placeholder" = "Verlauf durchsuchen...";
+"clear_all" = "Alles löschen (Option+Klick für gepinnte)";
+"no_history" = "Kein Verlauf";
+"no_results" = "Keine Ergebnisse";
+"copy_start" = "Kopiere etwas, um zu beginnen";
+"items_count" = "%d Einträge";
+"results_count" = "%d Ergebnisse";
+"footer_help" = "↑↓ wählen  ⏎ einfügen  ⌘P pinnen  ⌘⌫ löschen";
+"loading_image" = "Bild wird geladen...";
+"pin" = "Anpinnen (⌘P)";
+"unpin" = "Lösen (⌘P)";
+"delete" = "Löschen (⌘⌫)";
+
+// Settings - Headers
+"general" = "Allgemein";
+"appearance" = "Erscheinungsbild";
+"storage" = "Speicher";
+"shortcuts" = "Kurzbefehle";
+"about" = "Über";
+
+// Settings - General
+"language" = "Sprache";
+"launch_login" = "Beim Anmelden starten";
+"show_dock" = "Im Dock anzeigen";
+"window_position" = "Fensterposition";
+"quit" = "Macory beenden";
+
+// Settings - Appearance
+"use_custom_colors" = "Benutzerdefinierte Farben";
+"accent_color" = "Akzentfarbe";
+"background_color" = "Hintergrundfarbe";
+"secondary_color" = "Sekundärfarbe";
+"secondary_color_desc" = "Sekundärfarbe wird für Suchleiste und Fußzeile verwendet";
+
+// Settings - Storage
+"retention" = "Aufbewahrung";
+"keep_text" = "Text behalten für";
+"keep_images" = "Bilder behalten für";
+"days" = "Tage";

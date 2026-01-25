@@ -57,8 +57,22 @@ struct ClipboardItem: Identifiable, Equatable, Codable {
     }
     
     var timeAgo: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: timestamp, relativeTo: Date())
+        let diff = Date().timeIntervalSince(timestamp)
+        let settings = SettingsManager.shared
+        
+        if diff < 60 {
+            return settings.localized("just_now")
+        } else if diff < 3600 {
+            let minutes = Int(diff / 60)
+            return String(format: settings.localized("min_ago"), minutes)
+        } else if diff < 86400 {
+            let hours = Int(diff / 3600)
+            let key = hours == 1 ? "hour_ago" : "hours_ago"
+            return String(format: settings.localized(key), hours)
+        } else {
+            let days = Int(diff / 86400)
+            let key = days == 1 ? "day_ago" : "days_ago"
+            return String(format: settings.localized(key), days)
+        }
     }
 }

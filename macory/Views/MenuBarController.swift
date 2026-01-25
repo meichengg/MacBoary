@@ -16,6 +16,7 @@ class MenuBarController: NSObject {
     override init() {
         super.init()
         setupStatusItem()
+        NotificationCenter.default.addObserver(self, selector: #selector(updateMenu), name: .languageDidChange, object: nil)
     }
     
     private func setupStatusItem() {
@@ -31,25 +32,26 @@ class MenuBarController: NSObject {
     
     private func createMenu() -> NSMenu {
         let menu = NSMenu()
+        let settings = SettingsManager.shared
         
         // Show History
         let showHistoryItem = NSMenuItem(
-            title: "Show History",
+            title: settings.localized("menu_show_history"),
             action: #selector(showHistory),
             keyEquivalent: ""
         )
         showHistoryItem.target = self
         
         // Add keyboard shortcut display
-        let shortcut = SettingsManager.shared.shortcut.displayString
-        showHistoryItem.title = "Show History (\(shortcut))"
+        let shortcut = settings.shortcut.displayString
+        showHistoryItem.title = "\(settings.localized("menu_show_history")) (\(shortcut))"
         
         menu.addItem(showHistoryItem)
         menu.addItem(NSMenuItem.separator())
         
         // Clear History
         let clearItem = NSMenuItem(
-            title: "Clear History",
+            title: settings.localized("menu_clear_history"),
             action: #selector(clearHistory),
             keyEquivalent: ""
         )
@@ -60,7 +62,7 @@ class MenuBarController: NSObject {
         
         // Settings
         let settingsItem = NSMenuItem(
-            title: "Settings...",
+            title: settings.localized("menu_settings"),
             action: #selector(openSettings),
             keyEquivalent: ","
         )
@@ -69,7 +71,7 @@ class MenuBarController: NSObject {
         
         // About
         let aboutItem = NSMenuItem(
-            title: "About Macory",
+            title: settings.localized("menu_about"),
             action: #selector(openAbout),
             keyEquivalent: ""
         )
@@ -80,7 +82,7 @@ class MenuBarController: NSObject {
         
         // Quit
         let quitItem = NSMenuItem(
-            title: "Quit Macory",
+            title: settings.localized("menu_quit"),
             action: #selector(quitApp),
             keyEquivalent: "q"
         )
@@ -90,8 +92,15 @@ class MenuBarController: NSObject {
         return menu
     }
     
-    func updateMenu() {
+    @objc func updateMenu() {
         statusItem?.menu = createMenu()
+        // Update window titles if they are loaded
+        if let window = settingsWindow {
+            window.title = SettingsManager.shared.localized("settings_title")
+        }
+        if let window = aboutWindow {
+            window.title = SettingsManager.shared.localized("about_title")
+        }
     }
     
     @objc private func showHistory() {
@@ -101,16 +110,17 @@ class MenuBarController: NSObject {
     @objc func clearHistory() {
         // Bring app to front if needed for the alert
         NSApp.activate(ignoringOtherApps: true)
+        let settings = SettingsManager.shared
         
         let alert = NSAlert()
-        alert.messageText = "Clear Clipboard History?"
-        alert.informativeText = "This will remove items from your clipboard history. This action cannot be undone."
+        alert.messageText = settings.localized("alert_clear_title")
+        alert.informativeText = settings.localized("alert_clear_desc")
         alert.alertStyle = .warning
         
-        alert.addButton(withTitle: "Clear")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: settings.localized("clear"))
+        alert.addButton(withTitle: settings.localized("cancel"))
         
-        let checkbox = NSButton(checkboxWithTitle: "Also clear pinned items", target: nil, action: nil)
+        let checkbox = NSButton(checkboxWithTitle: settings.localized("clear_pinned"), target: nil, action: nil)
         checkbox.state = .off
         checkbox.sizeToFit() // Ensure text is visible
         alert.accessoryView = checkbox
@@ -129,7 +139,7 @@ class MenuBarController: NSObject {
                 backing: .buffered,
                 defer: false
             )
-            settingsWindow?.title = "Macory Settings"
+            settingsWindow?.title = SettingsManager.shared.localized("settings_title")
             settingsWindow?.center()
             settingsWindow?.contentView = NSHostingView(rootView: SettingsView())
             settingsWindow?.isReleasedWhenClosed = false
@@ -147,7 +157,7 @@ class MenuBarController: NSObject {
                 backing: .buffered,
                 defer: false
             )
-            aboutWindow?.title = "About Macory"
+            aboutWindow?.title = SettingsManager.shared.localized("about_title")
             aboutWindow?.center()
             aboutWindow?.contentView = NSHostingView(rootView: AboutView())
             aboutWindow?.isReleasedWhenClosed = false

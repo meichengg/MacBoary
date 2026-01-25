@@ -15,8 +15,8 @@ enum PopupPosition: String, CaseIterable, Codable {
     
     var displayName: String {
         switch self {
-        case .center: return "Center of Screen"
-        case .mouse: return "At Mouse Position"
+        case .center: return SettingsManager.shared.localized("center_screen")
+        case .mouse: return SettingsManager.shared.localized("mouse_position")
         }
     }
 }
@@ -28,9 +28,9 @@ enum AppTheme: String, CaseIterable, Codable {
     
     var displayName: String {
         switch self {
-        case .system: return "System"
-        case .light: return "Light"
-        case .dark: return "Dark"
+        case .system: return SettingsManager.shared.localized("system")
+        case .light: return SettingsManager.shared.localized("light")
+        case .dark: return SettingsManager.shared.localized("dark")
         }
     }
     
@@ -39,6 +39,20 @@ enum AppTheme: String, CaseIterable, Codable {
         case .system: return nil
         case .light: return .light
         case .dark: return .dark
+        }
+    }
+}
+
+enum AppLanguage: String, CaseIterable, Codable {
+    case system = "system"
+    case english = "en"
+    case german = "de"
+    
+    var displayName: String {
+        switch self {
+        case .system: return "System Default"
+        case .english: return "English"
+        case .german: return "Deutsch"
         }
     }
 }
@@ -55,10 +69,18 @@ class SettingsManager: ObservableObject {
     private let textRetentionDaysKey = "textRetentionDays"
     private let imageRetentionDaysKey = "imageRetentionDays"
     private let appThemeKey = "appTheme"
+    private let appLanguageKey = "appLanguage"
     private let useCustomColorsKey = "useCustomColors"
     private let customAccentColorKey = "customAccentColor"
     private let customBackgroundColorKey = "customBackgroundColor"
     private let customSecondaryColorKey = "customSecondaryColor"
+    
+    @Published var appLanguage: AppLanguage {
+        didSet {
+            UserDefaults.standard.set(appLanguage.rawValue, forKey: appLanguageKey)
+            NotificationCenter.default.post(name: .languageDidChange, object: nil)
+        }
+    }
     
     @Published var showDockIcon: Bool {
         didSet {
@@ -185,6 +207,13 @@ class SettingsManager: ObservableObject {
             self.appTheme = .system
         }
         
+        if let langRaw = UserDefaults.standard.string(forKey: appLanguageKey),
+           let lang = AppLanguage(rawValue: langRaw) {
+            self.appLanguage = lang
+        } else {
+            self.appLanguage = .system
+        }
+        
         if let data = UserDefaults.standard.data(forKey: shortcutKey),
            let decoded = try? JSONDecoder().decode(GlobalKeyboardShortcut.self, from: data) {
             self.shortcut = decoded
@@ -198,6 +227,8 @@ class SettingsManager: ObservableObject {
         } else {
             self.popupPosition = .center
         }
+        
+        updateDockIconVisibility()
     }
     
     func updateDockIconVisibility() {
@@ -207,4 +238,12 @@ class SettingsManager: ObservableObject {
             NSApp.setActivationPolicy(.accessory)
         }
     }
+    
+    func localized(_ key: String) -> String {
+        return Localization.string(key, language: appLanguage)
+    }
+}
+
+extension Notification.Name {
+    static let languageDidChange = Notification.Name("languageDidChange")
 }

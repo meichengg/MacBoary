@@ -33,12 +33,12 @@ struct AboutView: View {
                 .fontWeight(.bold)
             
             // Tagline
-            Text("Clipboard History Manager")
+            Text(settingsManager.localized("about_tagline"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
             // Version
-            Text("Version \(appVersion) (\(buildNumber))")
+            Text(String(format: settingsManager.localized("version"), appVersion, buildNumber))
                 .font(.caption)
                 .foregroundColor(.secondary)
             
@@ -47,7 +47,7 @@ struct AboutView: View {
             
             // Description
             VStack(spacing: 8) {
-                Text("A lightweight clipboard history manager")
+                Text(settingsManager.localized("about_desc"))
             }
             .font(.caption)
             .foregroundColor(.secondary)
