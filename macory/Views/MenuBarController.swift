@@ -120,6 +120,7 @@ class MenuBarController: NSObject {
         alert.messageText = settings.localized("alert_clear_title")
         alert.informativeText = settings.localized("alert_clear_desc")
         alert.alertStyle = .warning
+        alert.icon = NSImage(named: "AboutIcon")
         
         alert.addButton(withTitle: settings.localized("clear"))
         alert.addButton(withTitle: settings.localized("cancel"))

@@ -157,6 +157,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.messageText = settings.localized("encrypt_opt_in_title")
         alert.informativeText = settings.localized("encrypt_opt_in_message")
         alert.alertStyle = .informational
+        alert.icon = NSImage(named: "AboutIcon")
         alert.addButton(withTitle: settings.localized("encrypt_opt_in_enable"))
         alert.addButton(withTitle: settings.localized("encrypt_opt_in_disable"))
         
@@ -181,6 +182,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             alert.messageText = settings.localized("accessibility_info_title")
             alert.informativeText = settings.localized("accessibility_info_message")
             alert.alertStyle = .informational
+            alert.icon = NSImage(named: "AboutIcon")
             alert.addButton(withTitle: "OK")
             
             alert.runModal()

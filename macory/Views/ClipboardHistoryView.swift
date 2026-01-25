@@ -148,9 +148,18 @@ struct ClipboardHistoryView: View {
     private var contentView: some View {
         if filteredItems.isEmpty {
             VStack(spacing: 12) {
-                Image(systemName: viewModel.searchText.isEmpty ? "clipboard" : "magnifyingglass")
-                    .font(.system(size: 40))
-                    .foregroundColor(.secondary.opacity(0.5))
+                if viewModel.searchText.isEmpty {
+                    Image("EmptyListIcon")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 64, height: 64)
+                        .opacity(0.8)
+                } else {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 40))
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+                
                 Text(viewModel.searchText.isEmpty ? settingsManager.localized("no_history") : settingsManager.localized("no_results"))
                     .font(.headline)
                     .foregroundColor(.secondary)
