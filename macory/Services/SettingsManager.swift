@@ -270,10 +270,12 @@ class SettingsManager: ObservableObject {
     }
     
     func updateDockIconVisibility() {
-        if showDockIcon {
-            NSApp.setActivationPolicy(.regular)
-        } else {
-            NSApp.setActivationPolicy(.accessory)
+        DispatchQueue.main.async {
+            if self.showDockIcon {
+                NSApp.setActivationPolicy(.regular)
+            } else {
+                NSApp.setActivationPolicy(.accessory)
+            }
         }
     }
     
