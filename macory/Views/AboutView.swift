@@ -21,13 +21,10 @@ struct AboutView: View {
     var body: some View {
         VStack(spacing: 20) {
             // App Icon
-            Image(systemName: "doc.on.clipboard.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.linearGradient(
-                    colors: [.blue, .purple],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
+            Image("AboutIcon")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 64, height: 64)
             
             // App Name
             Text("Macory")
