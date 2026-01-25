@@ -3,7 +3,7 @@ import subprocess
 import json
 
 # Paths
-SOURCE_IMAGE = "../macboary/trayicon.png"
+SOURCE_IMAGE = "../assets/trayicon.png"
 ASSETS_DIR = "../macboary/Assets.xcassets"
 
 # Ensure absolute paths
@@ -31,6 +31,31 @@ def generate_contents_json(images_config, output_dir):
 
 # 1. Generate AppIcon (Dock)
 def generate_app_icons():
+
+    def resize_and_pad(
+        output_path, target_dimension, content_dimension, source=SOURCE_IMAGE
+    ):
+        temp_path = output_path + ".temp.png"
+        resize_image(temp_path, content_dimension, content_dimension, source)
+
+        # Pad to target dimension
+        # Note: sips padColor defaults to black/white depending on version,
+        # but for app icons typically squircle shape is handled by system unless pre-composed.
+        # User requested 832 size on 1024 canvas.
+        cmd = [
+            "sips",
+            "--padToHeightWidth",
+            str(target_dimension),
+            str(target_dimension),
+            temp_path,
+            "--out",
+            output_path,
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
+
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
     print("Generating AppIcons...")
     output_dir = os.path.join(ASSETS_DIR, "AppIcon.appiconset")
     if not os.path.exists(output_dir):
@@ -38,6 +63,9 @@ def generate_app_icons():
 
     images_config = []
     sizes = [16, 32, 128, 256, 512]
+
+    # 832/1024 = 0.8125
+    CONTENT_RATIO = 832.0 / 1024.0
 
     for size in sizes:
         for scale in [1, 2]:
@@ -49,7 +77,10 @@ def generate_app_icons():
             else:
                 filename = f"icon_{size}x{size}@{scale_str}.png"
 
-            resize_image(os.path.join(output_dir, filename), dimension, dimension)
+            content_dimension = int(dimension * CONTENT_RATIO)
+            resize_and_pad(
+                os.path.join(output_dir, filename), dimension, content_dimension
+            )
 
             images_config.append(
                 {
