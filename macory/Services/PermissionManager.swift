@@ -8,7 +8,6 @@
 import Foundation
 import AppKit
 import ApplicationServices
-import UserNotifications
 
 class PermissionManager {
     static let shared = PermissionManager()
@@ -19,12 +18,7 @@ class PermissionManager {
     private var permissionCheckStartTime: Date?
     
     private init() {
-        // Request notification permissions
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
-            if let error = error {
-                print("Failed to request notification permission: \(error)")
-            }
-        }
+        // Notifications removed
     }
     
     deinit {
@@ -88,7 +82,7 @@ class PermissionManager {
                 self.permissionCheckStartTime = nil
                 
                 self.closeSystemPreferences()
-                self.showPermissionGrantedNotification()
+                // Notification removed
                 
                 // Notify that permission was granted
                 NotificationCenter.default.post(name: .permissionGranted, object: nil)
@@ -124,22 +118,6 @@ class PermissionManager {
                app.bundleIdentifier == "com.apple.Settings" {
                 app.terminate()
                 break
-            }
-        }
-    }
-    
-    private func showPermissionGrantedNotification() {
-        DispatchQueue.main.async {
-            let content = UNMutableNotificationContent()
-            content.title = "Macory"
-            content.body = SettingsManager.shared.localized("permission_granted_notification")
-            content.sound = .default
-            
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-            UNUserNotificationCenter.current().add(request) { error in
-                if let error = error {
-                    print("Failed to show notification: \(error)")
-                }
             }
         }
     }

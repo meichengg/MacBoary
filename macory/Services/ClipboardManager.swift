@@ -395,14 +395,7 @@ class ClipboardManager: ObservableObject {
             NSLog("❌ CRITICAL: Failed to encrypt clipboard history. Data not saved. Check keychain access.")
             
             // Show user-facing error in Console and system log
-            Task { @MainActor in
-                // Post notification so user can see the error
-                let notification = NSUserNotification()
-                notification.title = "Macory - Save Error"
-                notification.informativeText = "Failed to encrypt clipboard data. History not saved."
-                notification.soundName = NSUserNotificationDefaultSoundName
-                NSUserNotificationCenter.default.deliver(notification)
-            }
+            print("Failed to encrypt clipboard data. History not saved.")
             return
         }
         
