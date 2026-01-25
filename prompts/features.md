@@ -51,3 +51,13 @@ Here is a comprehensive list of all features in MacBoary:
 - **Launch at Login**: Configuration option to automatically start MacBoary when you log in.
 - **Menu Bar App**: Lives in your menu bar for quick access without cluttering your dock.
 - **Localization**: Built-in language selection support.
+  - English
+  - German
+  - Spanish
+  - French
+  - Chinese
+  - Japanese
+  - Korean
+  - Russian
+  - Portuguese
+  - Italian
