@@ -47,21 +47,13 @@ enum AppTheme: String, CaseIterable, Codable {
 enum AppLanguage: String, CaseIterable, Codable {
     case system = "system"
     case english = "en"
-    case spanish = "es"
-    case french = "fr"
     case german = "de"
-    case chinese = "zh"
-    case hindi = "hi"
     
     var displayName: String {
         switch self {
         case .system: return "System Default"
         case .english: return "English"
-        case .spanish: return "Español"
-        case .french: return "Français"
         case .german: return "Deutsch"
-        case .chinese: return "中文"
-        case .hindi: return "हिन्दी"
         }
     }
 }
@@ -310,7 +302,7 @@ class SettingsManager: ObservableObject {
     }
     
     func localized(_ key: String) -> String {
-        return Localization.string(key, language: appLanguage)
+        return Localization.localized(key, language: appLanguage)
     }
     
     private func cleanupImagesIfDisabled() {
