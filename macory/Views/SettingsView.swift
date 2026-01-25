@@ -278,7 +278,9 @@ class RecorderControl: NSView {
         
         let options: NSTrackingArea.Options = [.mouseEnteredAndExited, .activeAlways, .inVisibleRect]
         trackingArea = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
-        addTrackingArea(trackingArea!)
+        if let trackingArea = trackingArea {
+            addTrackingArea(trackingArea)
+        }
         
         super.updateTrackingAreas()
     }

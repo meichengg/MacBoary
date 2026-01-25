@@ -56,7 +56,7 @@ struct ClipboardItem: Identifiable, Equatable, Codable {
         }
     }
     
-    var timeAgo: String {
+    @MainActor var timeAgo: String {
         let diff = Date().timeIntervalSince(timestamp)
         let settings = SettingsManager.shared
         

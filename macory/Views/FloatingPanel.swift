@@ -89,7 +89,14 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         super.init()
     }
     
-    private var filteredItems: [ClipboardItem] {
+    deinit {
+        stopEventMonitoring()
+        panel?.delegate = nil
+        panel = nil
+        hostingView = nil
+    }
+    
+    @MainActor private var filteredItems: [ClipboardItem] {
         let items = ClipboardManager.shared.items
         if viewModel.searchText.isEmpty {
             return items
@@ -99,7 +106,7 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         }
     }
     
-    func showPanel() {
+    @MainActor func showPanel() {
         // Don't show panel while permission request is in progress
         if PermissionManager.shared.isRequestingPermission {
             return
@@ -129,20 +136,20 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         startEventMonitoring()
     }
     
-    private func createPanel() {
+    @MainActor private func createPanel() {
         panel = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 400, height: 450))
         panel?.delegate = self
         
         let historyView = ClipboardHistoryView(
             viewModel: viewModel,
-            onSelect: { [weak self] item in
+            onSelect: { @MainActor [weak self] item in
                 self?.selectItem(item)
             },
-            onDelete: { [weak self] item in
+            onDelete: { @MainActor [weak self] item in
                 // We need to pass the original item, but deleteItem expects it
                 self?.deleteItem(item)
             },
-            onPin: { [weak self] item in
+            onPin: { @MainActor [weak self] item in
                 self?.togglePin(item)
             }
         )
@@ -155,13 +162,13 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         panel?.contentView = hostingView
     }
     
-    func hidePanel() {
+    @MainActor func hidePanel() {
         stopEventMonitoring()
         panel?.orderOut(nil)
         isVisible = false
     }
     
-    func togglePanel() {
+    @MainActor func togglePanel() {
         if isVisible {
             hidePanel()
         } else {
@@ -169,7 +176,7 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         }
     }
     
-    private func positionPanel() {
+    @MainActor private func positionPanel() {
         guard let panel = panel, let screen = NSScreen.main else { return }
         
         let panelSize = panel.frame.size
@@ -340,7 +347,7 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         }
     }
     
-    private func selectItem(_ item: ClipboardItem) {
+    @MainActor private func selectItem(_ item: ClipboardItem) {
         ClipboardManager.shared.selectItem(item)
         hidePanel()
         
@@ -351,7 +358,7 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         }
     }
     
-    private func deleteItem(_ item: ClipboardItem) {
+    @MainActor private func deleteItem(_ item: ClipboardItem) {
         ClipboardManager.shared.deleteItem(item)
         
         // Re-calculate filtered list size to adjust selection if needed
@@ -361,7 +368,7 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         }
     }
     
-    private func togglePin(_ item: ClipboardItem) {
+    @MainActor private func togglePin(_ item: ClipboardItem) {
         ClipboardManager.shared.togglePin(item)
     }
     

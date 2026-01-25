@@ -8,6 +8,7 @@
 import Foundation
 import AppKit
 import Carbon
+import ApplicationServices
 
 class PasteService {
     static let shared = PasteService()
@@ -15,9 +16,15 @@ class PasteService {
     private init() {}
     
     func pasteToFrontApp() {
+        // Check if we have accessibility permission before attempting to post events
+        guard AXIsProcessTrusted() else {
+            print("⚠️ Cannot paste: Accessibility permission not granted")
+            return
+        }
+        
         // Small delay to ensure window is closed and previous app is active
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.simulatePaste()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.simulatePaste()
         }
     }
     

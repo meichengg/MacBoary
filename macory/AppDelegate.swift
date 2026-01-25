@@ -11,6 +11,10 @@ import SwiftUI
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
     
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Set activation policy based on settings
         SettingsManager.shared.updateDockIconVisibility()
@@ -58,23 +62,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Dock Menu
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
+        let settings = SettingsManager.shared
         
-        let showItem = NSMenuItem(title: "Show History", action: #selector(showHistoryFromDock), keyEquivalent: "")
+        let showItem = NSMenuItem(title: settings.localized("menu_show_history"), action: #selector(showHistoryFromDock), keyEquivalent: "")
         menu.addItem(showItem)
         
         menu.addItem(NSMenuItem.separator())
         
-        let clearItem = NSMenuItem(title: "Clear History...", action: #selector(clearHistoryFromDock), keyEquivalent: "")
+        let clearItem = NSMenuItem(title: settings.localized("menu_clear_history"), action: #selector(clearHistoryFromDock), keyEquivalent: "")
         menu.addItem(clearItem)
         
         return menu
     }
     
-    @objc private func showHistoryFromDock() {
+    @MainActor @objc private func showHistoryFromDock() {
         FloatingPanelController.shared.showPanel()
     }
     
-    @objc private func clearHistoryFromDock() {
+    @MainActor @objc private func clearHistoryFromDock() {
         menuBarController?.clearHistory()
     }
     
@@ -83,19 +88,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
     
-    private func registerHotkey() {
+    @MainActor private func registerHotkey() {
         let shortcut = SettingsManager.shared.shortcut
         HotkeyManager.shared.register(shortcut: shortcut) {
             FloatingPanelController.shared.togglePanel()
         }
     }
     
-    @objc private func shortcutDidChange() {
+    @MainActor @objc private func shortcutDidChange() {
         registerHotkey()
         menuBarController?.updateMenu()
     }
     
-    @objc private func permissionGranted() {
+    @MainActor @objc private func permissionGranted() {
         // Permission was granted, re-register hotkey to ensure it works
         registerHotkey()
         

@@ -10,6 +10,7 @@ import AppKit
 import Combine
 import ImageIO
 
+@MainActor
 class ClipboardManager: ObservableObject {
     static let shared = ClipboardManager()
     
@@ -20,9 +21,21 @@ class ClipboardManager: ObservableObject {
     private var lastChangeCount: Int = 0
     private let storageKey = "clipboardHistory"
     
+    private var historyFileURL: URL {
+        let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        guard let appSupport = urls.first else {
+            let tempDir = FileManager.default.temporaryDirectory
+            return tempDir.appendingPathComponent("macory/history.enc")
+        }
+        let dir = appSupport.appendingPathComponent("app.macory")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("history.enc")
+    }
+    
     private init() {
         loadHistory()
         cleanupOldItems()
+        cleanupOrphanedImages()
         startMonitoring()
     }
     
@@ -30,9 +43,14 @@ class ClipboardManager: ObservableObject {
     
     private var imagesDirectory: URL {
         let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
-        let appSupport = urls[0].appendingPathComponent("app.macory/images")
-        try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
-        return appSupport
+        guard let appSupport = urls.first else {
+            // Fallback to temporary directory if application support is not available
+            let tempDir = FileManager.default.temporaryDirectory
+            return tempDir.appendingPathComponent("macory/images")
+        }
+        let imageDir = appSupport.appendingPathComponent("app.macory/images")
+        try? FileManager.default.createDirectory(at: imageDir, withIntermediateDirectories: true)
+        return imageDir
     }
     
     private func saveImage(_ image: NSImage) -> String? {
@@ -42,6 +60,13 @@ class ClipboardManager: ObservableObject {
         guard let tiffData = image.tiffRepresentation,
               let bitmapImage = NSBitmapImageRep(data: tiffData),
               let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
+            return nil
+        }
+        
+        // Check image size limit (max 10MB to prevent memory issues)
+        let maxImageSize = 10 * 1024 * 1024 // 10MB
+        if pngData.count > maxImageSize {
+            print("Image too large (\(pngData.count) bytes), skipping")
             return nil
         }
         
@@ -75,6 +100,9 @@ class ClipboardManager: ObservableObject {
     
     func getThumbnail(named name: String, maxDimension: CGFloat = 200) -> NSImage? {
         let fileURL = imagesDirectory.appendingPathComponent(name)
+        
+        // Note: This method should be called from a background thread
+        // as it performs I/O and decryption operations
         
         // Try to decrypt if encrypted
         if let encryptedData = try? Data(contentsOf: fileURL),
@@ -194,26 +222,26 @@ class ClipboardManager: ObservableObject {
     }
     
     private func add(_ newItem: ClipboardItem) {
-        // Handle duplication for Text
-        if newItem.type == .text {
-            // Don't add duplicates at the top
-            if let firstItem = items.first, firstItem.type == .text, firstItem.content == newItem.content {
-                return
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            
+            // Handle duplication for Text
+            if newItem.type == .text {
+                // Don't add duplicates at the top
+                if let firstItem = self.items.first, firstItem.type == .text, firstItem.content == newItem.content {
+                    return
+                }
+                // Remove existing duplicate if present
+                self.items.removeAll { $0.type == .text && $0.content == newItem.content }
             }
-            // Remove existing duplicate if present
-            items.removeAll { $0.type == .text && $0.content == newItem.content }
-        } else {
-            // For images, hard to deduplicate efficiently without hash.
-            // For now, accept duplicates or check naive comparison (not easy).
-            // We just add it.
+            
+            // Add new item at the top (after pinned items)
+            let pinnedCount = self.items.filter { $0.isPinned }.count
+            self.items.insert(newItem, at: pinnedCount)
+            
+            self.enforceLimit()
+            self.saveHistory()
         }
-        
-        // Add new item at the top (after pinned items)
-        let pinnedCount = items.filter { $0.isPinned }.count
-        items.insert(newItem, at: pinnedCount)
-        
-        enforceLimit()
-        saveHistory()
     }
     
     private func enforceLimit() {
@@ -247,13 +275,17 @@ class ClipboardManager: ObservableObject {
         
         // If unpinned, move to top of unpinned section
         if !item.isPinned {
-            items.removeAll { $0.id == item.id }
-            let pinnedCount = items.filter { $0.isPinned }.count
-            // Create new item with fresh timestamp (reuse image file for now, or copy?)
-            // We reuse the image file.
-            let refreshedItem = ClipboardItem(id: item.id, content: item.content, timestamp: Date(), isPinned: false, type: item.type, imagePath: item.imagePath)
-            items.insert(refreshedItem, at: pinnedCount)
-            saveHistory()
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                
+                self.items.removeAll { $0.id == item.id }
+                let pinnedCount = self.items.filter { $0.isPinned }.count
+                // Create new item with fresh timestamp (reuse image file for now, or copy?)
+                // We reuse the image file.
+                let refreshedItem = ClipboardItem(id: item.id, content: item.content, timestamp: Date(), isPinned: false, type: item.type, imagePath: item.imagePath)
+                self.items.insert(refreshedItem, at: pinnedCount)
+                self.saveHistory()
+            }
         }
     }
     
@@ -261,113 +293,170 @@ class ClipboardManager: ObservableObject {
         if let imagePath = item.imagePath {
             deleteImage(named: imagePath)
         }
-        items.removeAll { $0.id == item.id }
-        saveHistory()
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            self.items.removeAll { $0.id == item.id }
+            self.saveHistory()
+        }
     }
     
     func togglePin(_ item: ClipboardItem) {
-        if let index = items.firstIndex(where: { $0.id == item.id }) {
-            var updatedItem = items[index]
-            updatedItem.isPinned.toggle()
-            items.remove(at: index)
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
             
-            // Re-insert based on new pin state
-            if updatedItem.isPinned {
-                items.insert(updatedItem, at: 0)
-            } else {
-                let pinnedCount = items.filter { $0.isPinned }.count
-                items.insert(updatedItem, at: pinnedCount)
+            if let index = self.items.firstIndex(where: { $0.id == item.id }) {
+                var updatedItem = self.items[index]
+                updatedItem.isPinned.toggle()
+                self.items.remove(at: index)
+                
+                // Re-insert based on new pin state
+                if updatedItem.isPinned {
+                    self.items.insert(updatedItem, at: 0)
+                } else {
+                    let pinnedCount = self.items.filter { $0.isPinned }.count
+                    self.items.insert(updatedItem, at: pinnedCount)
+                }
+                
+                self.saveHistory()
             }
-            saveHistory()
         }
     }
     
     func clearHistory(includePinned: Bool = false) {
-        // Collect files to delete
-        let itemsToDelete = includePinned ? items : items.filter { !$0.isPinned }
-        
-        for item in itemsToDelete {
-            if let imagePath = item.imagePath {
-                deleteImage(named: imagePath)
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            
+            // Collect files to delete
+            let itemsToDelete = includePinned ? self.items : self.items.filter { !$0.isPinned }
+            
+            for item in itemsToDelete {
+                if let imagePath = item.imagePath {
+                    self.deleteImage(named: imagePath)
+                }
             }
+            
+            if includePinned {
+                self.items.removeAll()
+            } else {
+                self.items.removeAll { !$0.isPinned }
+            }
+            
+            self.saveHistory()
         }
-        
-        if includePinned {
-            items.removeAll()
-        } else {
-            items.removeAll { !$0.isPinned }
-        }
-        saveHistory()
     }
     
     private func cleanupOldItems() {
-        let textDays = SettingsManager.shared.textRetentionDays
-        let imageDays = SettingsManager.shared.imageRetentionDays
-        
-        // If retention is "Forever" (-1), skip cleanup for that type
-        // If retention is "Disabled" (0), cleanup everything of that type (which logic below handles: cuttoff = now)
-        
-        let now = Date()
-        let textCutoff = textDays == -1 ? Date.distantPast : (Calendar.current.date(byAdding: .day, value: -textDays, to: now) ?? now)
-        let imageCutoff = imageDays == -1 ? Date.distantPast : (Calendar.current.date(byAdding: .day, value: -imageDays, to: now) ?? now)
-        
-        var itemsToDelete: [ClipboardItem] = []
-        
-        items.removeAll { item in
-            if item.isPinned { return false }
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
             
-            // Should we delete if retention is disabled?
-            // If retention is 0, cutoff is NOW. item.timestamp < NOW is true. So it deletes. Correct.
-            // If retention is -1, cutoff is distantPast. item.timestamp < distantPast is false. So it keeps. Correct.
+            let textDays = SettingsManager.shared.textRetentionDays
+            let imageDays = SettingsManager.shared.imageRetentionDays
             
-            let cutoff = item.type == .image ? imageCutoff : textCutoff
-            if item.timestamp < cutoff {
-                itemsToDelete.append(item)
-                return true
+            // If retention is "Forever" (-1), skip cleanup for that type
+            // If retention is "Disabled" (0), cleanup everything of that type (which logic below handles: cuttoff = now)
+            
+            let now = Date()
+            let textCutoff = textDays == -1 ? Date.distantPast : (Calendar.current.date(byAdding: .day, value: -textDays, to: now) ?? now)
+            let imageCutoff = imageDays == -1 ? Date.distantPast : (Calendar.current.date(byAdding: .day, value: -imageDays, to: now) ?? now)
+            
+            var itemsToDelete: [ClipboardItem] = []
+            
+            self.items.removeAll { item in
+                if item.isPinned { return false }
+                
+                let cutoff = item.type == .image ? imageCutoff : textCutoff
+                if item.timestamp < cutoff {
+                    itemsToDelete.append(item)
+                    return true
+                }
+                return false
             }
-            return false
-        }
-        
-        for item in itemsToDelete {
-            if let imagePath = item.imagePath {
-                deleteImage(named: imagePath)
+            
+            for item in itemsToDelete {
+                if let imagePath = item.imagePath {
+                    self.deleteImage(named: imagePath)
+                }
             }
-        }
-        
-        if !itemsToDelete.isEmpty {
-            saveHistory()
+            
+            if !itemsToDelete.isEmpty {
+                self.saveHistory()
+            }
         }
     }
 
     private func saveHistory() {
-        if let encoded = try? JSONEncoder().encode(items) {
-            // Encrypt the data before storing
-            let base64String = encoded.base64EncodedString()
-            if let encryptedString = EncryptionService.shared.encrypt(base64String) {
-                UserDefaults.standard.set(encryptedString, forKey: storageKey)
-            } else {
-                // Fallback to unencrypted if encryption fails
-                UserDefaults.standard.set(encoded, forKey: storageKey)
+        guard let encoded = try? JSONEncoder().encode(items) else {
+            NSLog("❌ CRITICAL: Failed to encode clipboard items")
+            return
+        }
+        
+        // Encrypt the data before storing
+        guard let encryptedData = EncryptionService.shared.encryptData(encoded) else {
+            NSLog("❌ CRITICAL: Failed to encrypt clipboard history. Data not saved. Check keychain access.")
+            
+            // Show user-facing error in Console and system log
+            Task { @MainActor in
+                // Post notification so user can see the error
+                let notification = NSUserNotification()
+                notification.title = "Macory - Save Error"
+                notification.informativeText = "Failed to encrypt clipboard data. History not saved."
+                notification.soundName = NSUserNotificationDefaultSoundName
+                NSUserNotificationCenter.default.deliver(notification)
             }
+            return
+        }
+        
+        do {
+            try encryptedData.write(to: historyFileURL, options: [.atomic, .completeFileProtection])
+        } catch {
+            NSLog("❌ CRITICAL: Failed to save clipboard history: \(error)")
         }
     }
     
     private func loadHistory() {
-        // Try to load as encrypted string first
+        // Try to load from secure file storage first
+        if let encryptedData = try? Data(contentsOf: historyFileURL),
+           let decryptedData = EncryptionService.shared.decryptData(encryptedData),
+           let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: decryptedData) {
+            items = decoded
+            return
+        }
+        
+        // Fallback to UserDefaults for migration (old format)
         if let encryptedString = UserDefaults.standard.string(forKey: storageKey),
            let decryptedString = EncryptionService.shared.decrypt(encryptedString),
            let data = Data(base64Encoded: decryptedString),
            let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
             items = decoded
+            // Migrate to new storage format
+            saveHistory()
+            // Remove from UserDefaults
+            UserDefaults.standard.removeObject(forKey: storageKey)
             return
         }
         
-        // Fallback to unencrypted data (for backward compatibility with existing data)
+        // Fallback to unencrypted data in UserDefaults (oldest format)
         if let data = UserDefaults.standard.data(forKey: storageKey),
            let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
             items = decoded
-            // Re-save with encryption
+            // Migrate to new storage format with encryption
             saveHistory()
+            // Remove from UserDefaults
+            UserDefaults.standard.removeObject(forKey: storageKey)
+        }
+    }
+    
+    private func cleanupOrphanedImages() {
+        let validImagePaths = Set(items.compactMap { $0.imagePath })
+        let imageDir = imagesDirectory
+        
+        Task.detached {
+            guard let files = try? FileManager.default.contentsOfDirectory(atPath: imageDir.path) else { return }
+            
+            for file in files where !validImagePaths.contains(file) {
+                let fileURL = imageDir.appendingPathComponent(file)
+                try? FileManager.default.removeItem(at: fileURL)
+            }
         }
     }
 }

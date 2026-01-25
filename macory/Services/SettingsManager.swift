@@ -14,7 +14,7 @@ enum PopupPosition: String, CaseIterable, Codable {
     case center = "center"
     case mouse = "mouse"
     
-    var displayName: String {
+    @MainActor var displayName: String {
         switch self {
         case .center: return SettingsManager.shared.localized("center_screen")
         case .mouse: return SettingsManager.shared.localized("mouse_position")
@@ -27,7 +27,7 @@ enum AppTheme: String, CaseIterable, Codable {
     case light = "light"
     case dark = "dark"
     
-    var displayName: String {
+    @MainActor var displayName: String {
         switch self {
         case .system: return SettingsManager.shared.localized("system")
         case .light: return SettingsManager.shared.localized("light")
@@ -66,6 +66,7 @@ enum AppLanguage: String, CaseIterable, Codable {
     }
 }
 
+@MainActor
 class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
     
@@ -162,6 +163,10 @@ class SettingsManager: ObservableObject {
     @Published var storeImages: Bool {
         didSet {
             UserDefaults.standard.set(storeImages, forKey: storeImagesKey)
+            // Clean up existing images if storage is disabled
+            if !storeImages {
+                cleanupImagesIfDisabled()
+            }
         }
     }
     
@@ -281,6 +286,30 @@ class SettingsManager: ObservableObject {
     
     func localized(_ key: String) -> String {
         return Localization.string(key, language: appLanguage)
+    }
+    
+    private func cleanupImagesIfDisabled() {
+        // Remove all image items from clipboard history when image storage is disabled
+        Task {
+            let imageItems = ClipboardManager.shared.items.filter { $0.type == .image }
+            
+            Task.detached {
+                for item in imageItems {
+                    if let imagePath = item.imagePath {
+                        let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+                        guard let appSupport = urls.first else { continue }
+                        let imageDir = appSupport.appendingPathComponent("app.macory/images")
+                        let fileURL = imageDir.appendingPathComponent(imagePath)
+                        try? FileManager.default.removeItem(at: fileURL)
+                    }
+                    
+                    // Remove from items array on main actor
+                    await MainActor.run {
+                        ClipboardManager.shared.deleteItem(item)
+                    }
+                }
+            }
+        }
     }
 }
 

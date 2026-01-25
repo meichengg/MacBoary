@@ -15,6 +15,7 @@ class HotkeyManager: ObservableObject {
     private var eventHandler: EventHandlerRef?
     private var hotKeyRef: EventHotKeyRef?
     private var callback: (() -> Void)?
+    private var handlerUPP: EventHandlerUPP?
     
     private init() {}
     
@@ -31,6 +32,7 @@ class HotkeyManager: ObservableObject {
             return noErr
         }
         
+        self.handlerUPP = handlerBlock
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         InstallEventHandler(GetApplicationEventTarget(), handlerBlock, 1, &eventType, selfPtr, &eventHandler)
         
@@ -54,6 +56,11 @@ class HotkeyManager: ObservableObject {
         if let eventHandler = eventHandler {
             RemoveEventHandler(eventHandler)
             self.eventHandler = nil
+        }
+        if let handlerUPP = handlerUPP {
+            // Note: EventHandlerUPP is a closure type in Swift, no need to explicitly dispose
+            // The reference will be released when set to nil
+            self.handlerUPP = nil
         }
     }
     

@@ -55,18 +55,36 @@ class EncryptionService {
     private func saveKeyToKeychain(_ key: SymmetricKey) {
         let keyData = key.withUnsafeBytes { Data($0) }
         
+        // Create access control that allows the app to access without prompting
+        guard let access = SecAccessControlCreateWithFlags(
+            kCFAllocatorDefault,
+            kSecAttrAccessibleAfterFirstUnlock,
+            [],  // No additional flags - allows access without user interaction
+            nil
+        ) else {
+            print("Failed to create access control")
+            return
+        }
+        
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: keyIdentifier,
             kSecValueData as String: keyData,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+            kSecAttrAccessControl as String: access
         ]
         
         // Delete any existing key first
-        SecItemDelete(query as CFDictionary)
+        let deleteStatus = SecItemDelete(query as CFDictionary)
+        if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
+            print("Warning: Failed to delete existing keychain item: \(deleteStatus)")
+            // Continue anyway - the add might still work
+        }
         
         // Add new key
-        SecItemAdd(query as CFDictionary, nil)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status != errSecSuccess {
+            print("Failed to save key to keychain: \(status)")
+        }
     }
     
     // MARK: - Encryption/Decryption

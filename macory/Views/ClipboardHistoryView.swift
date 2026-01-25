@@ -15,14 +15,22 @@ struct ClipboardHistoryView: View {
     var onDelete: (ClipboardItem) -> Void
     var onPin: (ClipboardItem) -> Void
     
-    // Compute filtered items here to ensure view updates when manager updates
-    var filteredItems: [ClipboardItem] {
+    // Cache filtered items to avoid recomputation on every render
+    @State private var cachedFilteredItems: [ClipboardItem] = []
+    
+    // Compute filtered items only when search text or items change
+    private func updateFilteredItems() {
         if viewModel.searchText.isEmpty {
-            return clipboardManager.items
+            cachedFilteredItems = clipboardManager.items
+        } else {
+            cachedFilteredItems = clipboardManager.items.filter {
+                $0.content.localizedCaseInsensitiveContains(viewModel.searchText)
+            }
         }
-        return clipboardManager.items.filter {
-            $0.content.localizedCaseInsensitiveContains(viewModel.searchText)
-        }
+    }
+    
+    var filteredItems: [ClipboardItem] {
+        cachedFilteredItems
     }
     
     // Focus state for search field
@@ -30,173 +38,14 @@ struct ClipboardHistoryView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header with Search
-            VStack(spacing: 0) {
-                // Search Bar
-                HStack(spacing: 12) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16))
-                        .foregroundColor(.secondary)
-                    
-                    TextField(settingsManager.localized("search_placeholder"), text: $viewModel.searchText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 15))
-                        .focused($isSearchFocused)
-                        .onAppear {
-                            // Auto focus when created
-                            isSearchFocused = true
-                        }
-                    
-                    if !viewModel.searchText.isEmpty {
-                        Button(action: {
-                            viewModel.searchText = ""
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    
-                    if !clipboardManager.items.isEmpty {
-                        Divider()
-                            .frame(height: 16)
-                            .padding(.horizontal, 4)
-                        
-                        Button(action: {
-                            let includePinned = NSEvent.modifierFlags.contains(.option)
-                            clipboardManager.clearHistory(includePinned: includePinned)
-                        }) {
-                            Image(systemName: "trash")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(settingsManager.localized("clear_all"))
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.3) : .clear)
-            }
+            headerView
             
             Divider()
                 .opacity(0.4)
             
-            // Permission warning banner
-            if !PermissionManager.shared.hasAccessibilityPermission {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
-                        .font(.system(size: 14))
-                    Text(settingsManager.localized("permission_warning"))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Button(settingsManager.localized("grant_access")) {
-                        PermissionManager.shared.openAccessibilityPreferences()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.orange.opacity(0.1))
-                
-                Divider()
-                    .opacity(0.4)
-            }
+            permissionWarningView
             
-            if filteredItems.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: viewModel.searchText.isEmpty ? "clipboard" : "magnifyingglass")
-                        .font(.system(size: 40))
-                        .foregroundColor(.secondary.opacity(0.5))
-                    Text(viewModel.searchText.isEmpty ? settingsManager.localized("no_history") : settingsManager.localized("no_results"))
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    if viewModel.searchText.isEmpty {
-                        Text(settingsManager.localized("copy_start"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.clear) // Transparent list background
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 4) {
-                            let visibleItems = Array(filteredItems.prefix(viewModel.displayedLimit).enumerated())
-                            
-                            ForEach(visibleItems, id: \.element.id) { index, item in
-                                ClipboardItemRow(
-                                    item: item,
-                                    index: index,
-                                    isSelected: index == viewModel.selectionIndex,
-                                    onSelect: { onSelect(item) },
-                                    onDelete: { onDelete(item) },
-                                    onPin: { onPin(item) }
-                                )
-                                .id("item-\(item.id.uuidString)")
-                            }
-                            
-                            if filteredItems.count > viewModel.displayedLimit {
-                                Button(action: {
-                                    withAnimation {
-                                        viewModel.displayedLimit += viewModel.pageSize
-                                    }
-                                }) {
-                                    HStack {
-                                        Spacer()
-                                        Text(settingsManager.localized("load_more"))
-                                            .font(.system(size: 13, weight: .medium))
-                                        Image(systemName: "chevron.down")
-                                            .font(.system(size: 11))
-                                        Spacer()
-                                    }
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(viewModel.selectionIndex == viewModel.displayedLimit ? Color.accentColor : Color.secondary.opacity(0.1))
-                                    )
-                                    .foregroundColor(viewModel.selectionIndex == viewModel.displayedLimit ? .white : .primary)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .id("load-more-\(viewModel.displayedLimit)")
-                            }
-                        }
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 8)
-                        .id(viewModel.displayedLimit) // Force re-render when limit changes
-                    }
-                    .onChange(of: viewModel.selectionIndex) { _, newIndex in
-                        // Scroll to item
-                        if newIndex >= 0 && newIndex < filteredItems.count {
-                            let item = filteredItems[newIndex]
-                            withAnimation(.easeInOut(duration: 0.1)) {
-                                proxy.scrollTo("item-\(item.id.uuidString)", anchor: .center)
-                            }
-                        } else if newIndex == viewModel.displayedLimit && filteredItems.count > viewModel.displayedLimit {
-                            // Scroll to load more button
-                            withAnimation(.easeInOut(duration: 0.1)) {
-                                proxy.scrollTo("load-more-\(viewModel.displayedLimit)", anchor: .center)
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Footer
-            HStack {
-                Text(viewModel.searchText.isEmpty ? String(format: settingsManager.localized("items_count"), clipboardManager.items.count) : String(format: settingsManager.localized("results_count"), filteredItems.count))
-                Spacer()
-                Text(settingsManager.localized("footer_help"))
-            }
-            .font(.system(size: 10))
-            .foregroundColor(.secondary.opacity(0.6))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.2) : .clear)
+            contentView
         }
         .frame(width: 400, height: 500)
         .background(
@@ -210,6 +59,188 @@ struct ClipboardHistoryView: View {
         )
         .preferredColorScheme(settingsManager.appTheme.colorScheme)
         .tint(settingsManager.useCustomColors ? settingsManager.customAccentColor.color : nil)
+        .onChange(of: clipboardManager.items) { _ in
+            updateFilteredItems()
+        }
+    }
+    
+    // Extract header into computed property to help type checker
+    private var headerView: some View {
+        VStack(spacing: 0) {
+            // Search Bar
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16))
+                    .foregroundColor(.secondary)
+                
+                TextField(settingsManager.localized("search_placeholder"), text: $viewModel.searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .focused($isSearchFocused)
+                    .onChange(of: viewModel.searchText) { _ in
+                        updateFilteredItems()
+                    }
+                    .onAppear {
+                        // Auto focus when created
+                        isSearchFocused = true
+                        updateFilteredItems()
+                    }
+                
+                if !viewModel.searchText.isEmpty {
+                    Button(action: {
+                        viewModel.searchText = ""
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                if !clipboardManager.items.isEmpty {
+                    Divider()
+                        .frame(height: 16)
+                        .padding(.horizontal, 4)
+                    
+                    Button(action: {
+                        let includePinned = NSEvent.modifierFlags.contains(.option)
+                        clipboardManager.clearHistory(includePinned: includePinned)
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(settingsManager.localized("clear_all"))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.3) : .clear)
+        }
+    }
+    
+    @ViewBuilder
+    private var permissionWarningView: some View {
+        if !PermissionManager.shared.hasAccessibilityPermission {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                    .font(.system(size: 14))
+                Text(settingsManager.localized("permission_warning"))
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                Spacer()
+                Button(settingsManager.localized("grant_access")) {
+                    PermissionManager.shared.openAccessibilityPreferences()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.orange.opacity(0.1))
+            
+            Divider()
+                .opacity(0.4)
+        }
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        if filteredItems.isEmpty {
+            VStack(spacing: 12) {
+                Image(systemName: viewModel.searchText.isEmpty ? "clipboard" : "magnifyingglass")
+                    .font(.system(size: 40))
+                    .foregroundColor(.secondary.opacity(0.5))
+                Text(viewModel.searchText.isEmpty ? settingsManager.localized("no_history") : settingsManager.localized("no_results"))
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                if viewModel.searchText.isEmpty {
+                    Text(settingsManager.localized("copy_start"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.clear) // Transparent list background
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 4) {
+                        let visibleItems = Array(filteredItems.prefix(viewModel.displayedLimit).enumerated())
+                        
+                        ForEach(visibleItems, id: \.element.id) { index, item in
+                            ClipboardItemRow(
+                                item: item,
+                                index: index,
+                                isSelected: index == viewModel.selectionIndex,
+                                onSelect: { onSelect(item) },
+                                onDelete: { onDelete(item) },
+                                onPin: { onPin(item) }
+                            )
+                            .id("item-\(item.id.uuidString)")
+                        }
+                        
+                        if filteredItems.count > viewModel.displayedLimit {
+                            Button(action: {
+                                withAnimation {
+                                    viewModel.displayedLimit += viewModel.pageSize
+                                }
+                            }) {
+                                HStack {
+                                    Spacer()
+                                    Text(settingsManager.localized("load_more"))
+                                        .font(.system(size: 13, weight: .medium))
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 11))
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(viewModel.selectionIndex == viewModel.displayedLimit ? Color.accentColor : Color.secondary.opacity(0.1))
+                                )
+                                .foregroundColor(viewModel.selectionIndex == viewModel.displayedLimit ? .white : .primary)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .id("load-more-\(viewModel.displayedLimit)")
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+                    .id(viewModel.displayedLimit) // Force re-render when limit changes
+                }
+                .onChange(of: viewModel.selectionIndex) { newIndex in
+                    // Scroll to item
+                    if newIndex >= 0 && newIndex < filteredItems.count {
+                        let item = filteredItems[newIndex]
+                        withAnimation(.easeInOut(duration: 0.1)) {
+                            proxy.scrollTo("item-\(item.id.uuidString)", anchor: .center)
+                        }
+                    } else if newIndex == viewModel.displayedLimit && filteredItems.count > viewModel.displayedLimit {
+                        // Scroll to load more button
+                        withAnimation(.easeInOut(duration: 0.1)) {
+                            proxy.scrollTo("load-more-\(viewModel.displayedLimit)", anchor: .center)
+                        }
+                    }
+                }
+            }
+        }
+        
+        footerView
+    }
+    
+    private var footerView: some View {
+        HStack {
+            Text(viewModel.searchText.isEmpty ? String(format: settingsManager.localized("items_count"), clipboardManager.items.count) : String(format: settingsManager.localized("results_count"), filteredItems.count))
+            Spacer()
+            Text(settingsManager.localized("footer_help"))
+        }
+        .font(.system(size: 10))
+        .foregroundColor(.secondary.opacity(0.6))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.2) : .clear)
     }
 }
 

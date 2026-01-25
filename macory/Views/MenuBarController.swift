@@ -13,13 +13,17 @@ class MenuBarController: NSObject {
     private var settingsWindow: NSWindow?
     private var aboutWindow: NSWindow?
     
-    override init() {
+    @MainActor override init() {
         super.init()
         setupStatusItem()
         NotificationCenter.default.addObserver(self, selector: #selector(updateMenu), name: .languageDidChange, object: nil)
     }
     
-    private func setupStatusItem() {
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @MainActor private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem?.button {
@@ -30,7 +34,7 @@ class MenuBarController: NSObject {
         statusItem?.menu = createMenu()
     }
     
-    private func createMenu() -> NSMenu {
+    @MainActor private func createMenu() -> NSMenu {
         let menu = NSMenu()
         let settings = SettingsManager.shared
         
@@ -92,7 +96,7 @@ class MenuBarController: NSObject {
         return menu
     }
     
-    @objc func updateMenu() {
+    @MainActor @objc func updateMenu() {
         statusItem?.menu = createMenu()
         // Update window titles if they are loaded
         if let window = settingsWindow {
@@ -103,11 +107,11 @@ class MenuBarController: NSObject {
         }
     }
     
-    @objc private func showHistory() {
+    @MainActor @objc private func showHistory() {
         FloatingPanelController.shared.showPanel()
     }
     
-    @objc func clearHistory() {
+    @MainActor @objc func clearHistory() {
         // Bring app to front if needed for the alert
         NSApp.activate(ignoringOtherApps: true)
         let settings = SettingsManager.shared
@@ -131,7 +135,7 @@ class MenuBarController: NSObject {
         }
     }
     
-    @objc private func openSettings() {
+    @MainActor @objc private func openSettings() {
         if settingsWindow == nil {
             settingsWindow = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 400, height: 400),
@@ -149,7 +153,7 @@ class MenuBarController: NSObject {
         NSApp.activate(ignoringOtherApps: true)
     }
     
-    @objc private func openAbout() {
+    @MainActor @objc private func openAbout() {
         if aboutWindow == nil {
             aboutWindow = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 300, height: 350),

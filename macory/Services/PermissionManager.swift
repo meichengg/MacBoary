@@ -8,6 +8,7 @@
 import Foundation
 import AppKit
 import ApplicationServices
+import UserNotifications
 
 class PermissionManager {
     static let shared = PermissionManager()
@@ -15,8 +16,21 @@ class PermissionManager {
     private var permissionCheckTimer: Timer?
     var isRequestingPermission = false  // Made public for access check
     private var permissionRequestStarted = false  // Track if a request was initiated
+    private var permissionCheckStartTime: Date?
     
-    private init() {}
+    private init() {
+        // Request notification permissions
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
+            if let error = error {
+                print("Failed to request notification permission: \(error)")
+            }
+        }
+    }
+    
+    deinit {
+        permissionCheckTimer?.invalidate()
+        permissionCheckTimer = nil
+    }
     
     var hasAccessibilityPermission: Bool {
         AXIsProcessTrusted()
@@ -47,10 +61,21 @@ class PermissionManager {
     private func startPermissionDecisionMonitoring() {
         // Poll to detect when the user grants permission
         permissionCheckTimer?.invalidate()
+        permissionCheckStartTime = Date()
         
         permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] timer in
             guard let self = self else {
                 timer.invalidate()
+                return
+            }
+            
+            // Timeout after 2 minutes
+            if let startTime = self.permissionCheckStartTime, Date().timeIntervalSince(startTime) > 120 {
+                timer.invalidate()
+                self.permissionCheckTimer = nil
+                self.isRequestingPermission = false
+                self.permissionRequestStarted = false
+                self.permissionCheckStartTime = nil
                 return
             }
             
@@ -60,6 +85,7 @@ class PermissionManager {
                 self.permissionCheckTimer = nil
                 self.isRequestingPermission = false
                 self.permissionRequestStarted = false
+                self.permissionCheckStartTime = nil
                 
                 self.closeSystemPreferences()
                 self.showPermissionGrantedNotification()
@@ -71,7 +97,10 @@ class PermissionManager {
     }
     
     func openAccessibilityPreferences() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
+            print("Failed to create accessibility preferences URL")
+            return
+        }
         NSWorkspace.shared.open(url)
         isRequestingPermission = true
         permissionRequestStarted = true
@@ -101,12 +130,17 @@ class PermissionManager {
     
     private func showPermissionGrantedNotification() {
         DispatchQueue.main.async {
-            let notification = NSUserNotification()
-            notification.title = "Macory"
-            notification.informativeText = SettingsManager.shared.localized("permission_granted_notification")
-            notification.soundName = NSUserNotificationDefaultSoundName
+            let content = UNMutableNotificationContent()
+            content.title = "Macory"
+            content.body = SettingsManager.shared.localized("permission_granted_notification")
+            content.sound = .default
             
-            NSUserNotificationCenter.default.deliver(notification)
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("Failed to show notification: \(error)")
+                }
+            }
         }
     }
 }
