@@ -1,6 +1,6 @@
 //
 //  EncryptionService.swift
-//  macory
+//  macboary
 //
 //  Created by Marco Baeuml on 25/01/2026.
 //
@@ -12,7 +12,7 @@ import Security
 class EncryptionService {
     static let shared = EncryptionService()
     
-    private let keyIdentifier = "com.macory.encryption.key"
+    private let keyIdentifier = "com.macboary.encryption.key"
     
     // Lazy loaded key
     private var _encryptionKey: SymmetricKey?

@@ -3,8 +3,8 @@ import subprocess
 import json
 
 # Paths
-SOURCE_IMAGE = "../macory/trayicon.png"
-ASSETS_DIR = "../macory/Assets.xcassets"
+SOURCE_IMAGE = "../macboary/trayicon.png"
+ASSETS_DIR = "../macboary/Assets.xcassets"
 
 # Ensure absolute paths
 script_dir = os.path.dirname(os.path.abspath(__file__))

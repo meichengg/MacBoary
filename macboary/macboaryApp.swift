@@ -1,6 +1,6 @@
 //
-//  macoryApp.swift
-//  macory
+//  macboaryApp.swift
+//  macboary
 //
 //  Created by Marco Baeuml on 24/01/2026.
 //
@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct macoryApp: App {
+struct macboaryApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {

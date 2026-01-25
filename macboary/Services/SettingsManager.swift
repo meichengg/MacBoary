@@ -1,6 +1,6 @@
 //
 //  SettingsManager.swift
-//  macory
+//  macboary
 //
 //  Created by Marco Baeuml on 24/01/2026.
 //
@@ -331,7 +331,7 @@ class SettingsManager: ObservableObject {
                     if let imagePath = item.imagePath {
                         let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
                         guard let appSupport = urls.first else { continue }
-                        let imageDir = appSupport.appendingPathComponent("app.macory/images")
+                        let imageDir = appSupport.appendingPathComponent("app.macboary/images")
                         let fileURL = imageDir.appendingPathComponent(imagePath)
                         try? FileManager.default.removeItem(at: fileURL)
                     }

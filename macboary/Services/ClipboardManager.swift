@@ -1,6 +1,6 @@
 //
 //  ClipboardManager.swift
-//  macory
+//  macboary
 //
 //  Created by Marco Baeuml on 24/01/2026.
 //
@@ -25,9 +25,9 @@ class ClipboardManager: ObservableObject {
         let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         guard let appSupport = urls.first else {
             let tempDir = FileManager.default.temporaryDirectory
-            return tempDir.appendingPathComponent("macory/history.enc")
+            return tempDir.appendingPathComponent("macboary/history.enc")
         }
-        let dir = appSupport.appendingPathComponent("app.macory")
+        let dir = appSupport.appendingPathComponent("app.macboary")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("history.enc")
     }
@@ -46,9 +46,9 @@ class ClipboardManager: ObservableObject {
         guard let appSupport = urls.first else {
             // Fallback to temporary directory if application support is not available
             let tempDir = FileManager.default.temporaryDirectory
-            return tempDir.appendingPathComponent("macory/images")
+            return tempDir.appendingPathComponent("macboary/images")
         }
-        let imageDir = appSupport.appendingPathComponent("app.macory/images")
+        let imageDir = appSupport.appendingPathComponent("app.macboary/images")
         try? FileManager.default.createDirectory(at: imageDir, withIntermediateDirectories: true)
         return imageDir
     }

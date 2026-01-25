@@ -1,6 +1,6 @@
 //
 //  AboutView.swift
-//  macory
+//  macboary
 //
 //  Created by Marco Baeuml on 24/01/2026.
 //
