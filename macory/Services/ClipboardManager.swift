@@ -36,17 +36,23 @@ class ClipboardManager: ObservableObject {
     }
     
     private func saveImage(_ image: NSImage) -> String? {
-        let fileName = UUID().uuidString + ".png"
+        let fileName = "\(UUID().uuidString).enc"
         let fileURL = imagesDirectory.appendingPathComponent(fileName)
         
         guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+              let bitmapImage = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
+            return nil
+        }
+        
+        // Encrypt the image data
+        guard let encryptedData = EncryptionService.shared.encryptData(pngData) else {
+            print("Failed to encrypt image")
             return nil
         }
         
         do {
-            try pngData.write(to: fileURL)
+            try encryptedData.write(to: fileURL)
             return fileName
         } catch {
             print("Failed to save image: \(error)")
@@ -56,12 +62,39 @@ class ClipboardManager: ObservableObject {
     
     func getImage(named name: String) -> NSImage? {
         let fileURL = imagesDirectory.appendingPathComponent(name)
+        
+        // Try to load as encrypted file first
+        if let encryptedData = try? Data(contentsOf: fileURL),
+           let decryptedData = EncryptionService.shared.decryptData(encryptedData) {
+            return NSImage(data: decryptedData)
+        }
+        
+        // Fallback to unencrypted (for backward compatibility)
         return NSImage(contentsOf: fileURL)
     }
     
     func getThumbnail(named name: String, maxDimension: CGFloat = 200) -> NSImage? {
         let fileURL = imagesDirectory.appendingPathComponent(name)
         
+        // Try to decrypt if encrypted
+        if let encryptedData = try? Data(contentsOf: fileURL),
+           let decryptedData = EncryptionService.shared.decryptData(encryptedData),
+           let imageSource = CGImageSourceCreateWithData(decryptedData as CFData, nil) {
+            
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: maxDimension
+            ]
+            
+            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options as CFDictionary) else {
+                return nil
+            }
+            
+            return NSImage(cgImage: cgImage, size: NSSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+        }
+        
+        // Fallback to unencrypted (for backward compatibility)
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
@@ -308,14 +341,33 @@ class ClipboardManager: ObservableObject {
 
     private func saveHistory() {
         if let encoded = try? JSONEncoder().encode(items) {
-            UserDefaults.standard.set(encoded, forKey: storageKey)
+            // Encrypt the data before storing
+            let base64String = encoded.base64EncodedString()
+            if let encryptedString = EncryptionService.shared.encrypt(base64String) {
+                UserDefaults.standard.set(encryptedString, forKey: storageKey)
+            } else {
+                // Fallback to unencrypted if encryption fails
+                UserDefaults.standard.set(encoded, forKey: storageKey)
+            }
         }
     }
     
     private func loadHistory() {
+        // Try to load as encrypted string first
+        if let encryptedString = UserDefaults.standard.string(forKey: storageKey),
+           let decryptedString = EncryptionService.shared.decrypt(encryptedString),
+           let data = Data(base64Encoded: decryptedString),
+           let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
+            items = decoded
+            return
+        }
+        
+        // Fallback to unencrypted data (for backward compatibility with existing data)
         if let data = UserDefaults.standard.data(forKey: storageKey),
            let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
             items = decoded
+            // Re-save with encryption
+            saveHistory()
         }
     }
 }
