@@ -48,12 +48,28 @@ enum AppLanguage: String, CaseIterable, Codable {
     case system = "system"
     case english = "en"
     case german = "de"
+    case spanish = "es"
+    case french = "fr"
+    case chinese = "zh"
+    case japanese = "ja"
+    case korean = "ko"
+    case russian = "ru"
+    case portuguese = "pt"
+    case italian = "it"
     
     var displayName: String {
         switch self {
         case .system: return "System Default"
         case .english: return "English"
         case .german: return "Deutsch"
+        case .spanish: return "Español"
+        case .french: return "Français"
+        case .chinese: return "中文"
+        case .japanese: return "日本語"
+        case .korean: return "한국어"
+        case .russian: return "Русский"
+        case .portuguese: return "Português"
+        case .italian: return "Italiano"
         }
     }
 }
