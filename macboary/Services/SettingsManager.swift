@@ -323,7 +323,7 @@ class SettingsManager: ObservableObject {
     
     private func cleanupImagesIfDisabled() {
         // Remove all image items from clipboard history when image storage is disabled
-        Task {
+        Task { @MainActor in
             let imageItems = ClipboardManager.shared.items.filter { $0.type == .image }
             
             Task.detached {

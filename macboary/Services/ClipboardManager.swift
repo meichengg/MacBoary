@@ -99,10 +99,11 @@ class ClipboardManager: ObservableObject {
     }
     
     func getThumbnail(named name: String, maxDimension: CGFloat = 200) -> NSImage? {
-        let fileURL = imagesDirectory.appendingPathComponent(name)
+        // IMPORTANT: This method performs I/O and decryption operations.
+        // It should ALWAYS be called from a background thread.
+        // See ClipboardHistoryView.swift ClipboardItemRow.onAppear for correct usage.
         
-        // Note: This method should be called from a background thread
-        // as it performs I/O and decryption operations
+        let fileURL = imagesDirectory.appendingPathComponent(name)
         
         // Try to decrypt if encrypted
         if let encryptedData = try? Data(contentsOf: fileURL),
@@ -271,13 +272,16 @@ class ClipboardManager: ObservableObject {
         } else {
              pasteboard.setString(item.content, forType: .string)
         }
-        lastChangeCount = pasteboard.changeCount
         
-        // If unpinned, move to top of unpinned section
-        if !item.isPinned {
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                
+        let newChangeCount = pasteboard.changeCount
+        
+        // Update lastChangeCount and items on MainActor to prevent race condition
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            self.lastChangeCount = newChangeCount
+            
+            // If unpinned, move to top of unpinned section
+            if !item.isPinned {
                 self.items.removeAll { $0.id == item.id }
                 let pinnedCount = self.items.filter { $0.isPinned }.count
                 // Create new item with fresh timestamp (reuse image file for now, or copy?)
@@ -387,6 +391,7 @@ class ClipboardManager: ObservableObject {
     private func saveHistory() {
         guard let encoded = try? JSONEncoder().encode(items) else {
             NSLog("❌ CRITICAL: Failed to encode clipboard items")
+            showCriticalError("Failed to encode clipboard history. Please restart the app.")
             return
         }
         
@@ -394,8 +399,18 @@ class ClipboardManager: ObservableObject {
         guard let encryptedData = EncryptionService.shared.encryptData(encoded) else {
             NSLog("❌ CRITICAL: Failed to encrypt clipboard history. Data not saved. Check keychain access.")
             
-            // Show user-facing error in Console and system log
+            // Show user-facing error
             print("Failed to encrypt clipboard data. History not saved.")
+            showCriticalError("Failed to encrypt clipboard data. Check keychain access in System Settings > Privacy & Security > Keychain.")
+            
+            // Fallback: save unencrypted with warning if encryption is disabled
+            if !UserDefaults.standard.bool(forKey: "encryptionEnabled") {
+                do {
+                    try encoded.write(to: historyFileURL, options: [.atomic, .completeFileProtection])
+                } catch {
+                    NSLog("❌ CRITICAL: Failed to save clipboard history even unencrypted: \(error)")
+                }
+            }
             return
         }
         
@@ -403,6 +418,18 @@ class ClipboardManager: ObservableObject {
             try encryptedData.write(to: historyFileURL, options: [.atomic, .completeFileProtection])
         } catch {
             NSLog("❌ CRITICAL: Failed to save clipboard history: \(error)")
+            showCriticalError("Failed to save clipboard history to disk: \(error.localizedDescription)")
+        }
+    }
+    
+    private func showCriticalError(_ message: String) {
+        Task { @MainActor in
+            let alert = NSAlert()
+            alert.messageText = "Clipboard Manager Error"
+            alert.informativeText = message
+            alert.alertStyle = .critical
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
         }
     }
     

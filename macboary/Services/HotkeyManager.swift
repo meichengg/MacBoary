@@ -62,6 +62,8 @@ class HotkeyManager: ObservableObject {
             // The reference will be released when set to nil
             self.handlerUPP = nil
         }
+        // Clear callback to break potential retain cycles
+        self.callback = nil
     }
     
     deinit {

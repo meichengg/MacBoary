@@ -15,22 +15,15 @@ struct ClipboardHistoryView: View {
     var onDelete: (ClipboardItem) -> Void
     var onPin: (ClipboardItem) -> Void
     
-    // Cache filtered items to avoid recomputation on every render
-    @State private var cachedFilteredItems: [ClipboardItem] = []
-    
-    // Compute filtered items only when search text or items change
-    private func updateFilteredItems() {
+    // Computed property for filtered items - recalculates when dependencies change
+    private var filteredItems: [ClipboardItem] {
         if viewModel.searchText.isEmpty {
-            cachedFilteredItems = clipboardManager.items
+            return clipboardManager.items
         } else {
-            cachedFilteredItems = clipboardManager.items.filter {
+            return clipboardManager.items.filter {
                 $0.content.localizedCaseInsensitiveContains(viewModel.searchText)
             }
         }
-    }
-    
-    var filteredItems: [ClipboardItem] {
-        cachedFilteredItems
     }
     
     // Focus state for search field
@@ -59,9 +52,6 @@ struct ClipboardHistoryView: View {
         )
         .preferredColorScheme(settingsManager.appTheme.colorScheme)
         .tint(settingsManager.useCustomColors ? settingsManager.customAccentColor.color : nil)
-        .onChange(of: clipboardManager.items) { _ in
-            updateFilteredItems()
-        }
     }
     
     // Extract header into computed property to help type checker
@@ -77,13 +67,9 @@ struct ClipboardHistoryView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 15))
                     .focused($isSearchFocused)
-                    .onChange(of: viewModel.searchText) { _ in
-                        updateFilteredItems()
-                    }
                     .onAppear {
                         // Auto focus when created
                         isSearchFocused = true
-                        updateFilteredItems()
                     }
                 
                 if !viewModel.searchText.isEmpty {

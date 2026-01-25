@@ -91,6 +91,10 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
     }
     
     deinit {
+        // Ensure event monitors are stopped even if panel is still visible
+        if isVisible {
+            stopEventMonitoring()
+        }
         stopEventMonitoring()
         panel?.delegate = nil
         panel = nil
@@ -362,8 +366,8 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         ClipboardManager.shared.selectItem(item)
         hidePanel()
         
-        // Activate previous app and paste
-        if let previousApp = previousApp {
+        // Activate previous app and paste, but check if it's still running
+        if let previousApp = previousApp, !previousApp.isTerminated {
             previousApp.activate()
             PasteService.shared.pasteToFrontApp()
         }

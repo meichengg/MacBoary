@@ -73,12 +73,17 @@ class EncryptionService {
     }
     
     private func saveKeyToKeychain(_ key: SymmetricKey) -> Bool {
-        let keyData = key.withUnsafeBytes { Data($0) }
+        var keyData = key.withUnsafeBytes { Data($0) }
+        
+        // Ensure sensitive key data is zeroed out after use
+        defer {
+            keyData.resetBytes(in: 0..<keyData.count)
+        }
         
         // Create access control that allows the app to access without prompting
         guard let access = SecAccessControlCreateWithFlags(
             kCFAllocatorDefault,
-            kSecAttrAccessibleAfterFirstUnlock,
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             [],  // No additional flags - allows access without user interaction
             nil
         ) else {
