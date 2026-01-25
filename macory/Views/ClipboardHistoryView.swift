@@ -31,15 +31,16 @@ struct ClipboardHistoryView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header with Search
-            VStack(spacing: 8) {
+            VStack(spacing: 0) {
                 // Search Bar
-                HStack(spacing: 8) {
+                HStack(spacing: 12) {
                     Image(systemName: "magnifyingglass")
+                        .font(.system(size: 16))
                         .foregroundColor(.secondary)
                     
                     TextField("Search history...", text: $viewModel.searchText)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                         .focused($isSearchFocused)
                         .onAppear {
                             // Auto focus when created
@@ -56,32 +57,29 @@ struct ClipboardHistoryView: View {
                         .buttonStyle(.plain)
                     }
                     
-                    Divider()
-                        .frame(height: 16)
-                    
-                    Button(action: {
-                        let includePinned = NSEvent.modifierFlags.contains(.option)
-                        clipboardManager.clearHistory(includePinned: includePinned)
-                    }) {
-                        Image(systemName: "trash")
-                            .foregroundColor(.secondary)
+                    if !clipboardManager.items.isEmpty {
+                        Divider()
+                            .frame(height: 16)
+                            .padding(.horizontal, 4)
+                        
+                        Button(action: {
+                            let includePinned = NSEvent.modifierFlags.contains(.option)
+                            clipboardManager.clearHistory(includePinned: includePinned)
+                        }) {
+                            Image(systemName: "trash")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Clear All (Option+Click to include pinned)")
                     }
-                    .buttonStyle(.plain)
-                    .help("Clear All (Option+Click to include pinned)")
-                    .disabled(clipboardManager.items.isEmpty)
                 }
-                .padding(10)
-                .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color : Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.3) : .clear)
             }
-            .padding(12)
-            .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.3) : Color(NSColor.windowBackgroundColor))
             
             Divider()
+                .opacity(0.4)
             
             if filteredItems.isEmpty {
                 VStack(spacing: 12) {
@@ -128,19 +126,17 @@ struct ClipboardHistoryView: View {
                 }
             }
             
-            Divider()
-            
             // Footer
             HStack {
                 Text(viewModel.searchText.isEmpty ? "\(clipboardManager.items.count) items" : "\(filteredItems.count) results")
                 Spacer()
                 Text("↑↓ select  ⏎ paste  ⌘P pin  ⌘⌫ delete")
             }
-            .font(.system(size: 10, weight: .medium))
-            .foregroundColor(.secondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.5) : Color(NSColor.windowBackgroundColor))
+            .font(.system(size: 10))
+            .foregroundColor(.secondary.opacity(0.6))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(settingsManager.useCustomColors ? settingsManager.customSecondaryColor.color.opacity(0.2) : .clear)
         }
         .frame(width: 400, height: 500)
         .background(
