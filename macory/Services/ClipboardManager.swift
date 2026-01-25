@@ -104,7 +104,7 @@ class ClipboardManager: ObservableObject {
         
         if isImageCandidate {
             // Check if image storage is enabled
-            if SettingsManager.shared.storeImages {
+            if SettingsManager.shared.imageRetentionDays != 0 {
                 if let image = NSImage(pasteboard: pasteboard) {
                     if let filename = saveImage(image) {
                          let newItem = ClipboardItem(content: "Image", type: .image, imagePath: filename)
@@ -123,13 +123,15 @@ class ClipboardManager: ObservableObject {
         }
         
         // 2. Check for Text
-        guard let content = pasteboard.string(forType: .string),
-              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return
+        if SettingsManager.shared.textRetentionDays != 0 {
+            guard let content = pasteboard.string(forType: .string),
+                  !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return
+            }
+            
+            let newItem = ClipboardItem(content: content)
+            add(newItem)
         }
-        
-        let newItem = ClipboardItem(content: content)
-        add(newItem)
     }
     
     private func add(_ newItem: ClipboardItem) {
@@ -240,14 +242,21 @@ class ClipboardManager: ObservableObject {
         let textDays = SettingsManager.shared.textRetentionDays
         let imageDays = SettingsManager.shared.imageRetentionDays
         
+        // If retention is "Forever" (-1), skip cleanup for that type
+        // If retention is "Disabled" (0), cleanup everything of that type (which logic below handles: cuttoff = now)
+        
         let now = Date()
-        let textCutoff = Calendar.current.date(byAdding: .day, value: -textDays, to: now) ?? now
-        let imageCutoff = Calendar.current.date(byAdding: .day, value: -imageDays, to: now) ?? now
+        let textCutoff = textDays == -1 ? Date.distantPast : (Calendar.current.date(byAdding: .day, value: -textDays, to: now) ?? now)
+        let imageCutoff = imageDays == -1 ? Date.distantPast : (Calendar.current.date(byAdding: .day, value: -imageDays, to: now) ?? now)
         
         var itemsToDelete: [ClipboardItem] = []
         
         items.removeAll { item in
             if item.isPinned { return false }
+            
+            // Should we delete if retention is disabled?
+            // If retention is 0, cutoff is NOW. item.timestamp < NOW is true. So it deletes. Correct.
+            // If retention is -1, cutoff is distantPast. item.timestamp < distantPast is false. So it keeps. Correct.
             
             let cutoff = item.type == .image ? imageCutoff : textCutoff
             if item.timestamp < cutoff {

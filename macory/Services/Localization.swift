@@ -97,10 +97,14 @@ struct Localization {
         // Settings - Storage
         "store_images": "Store Images",
         "store_images_desc": "Save copied images to history",
+        "text_retention": "Text Retention",
+        "image_retention": "Image Retention",
         "retention": "Retention",
         "keep_text": "Keep text for",
         "keep_images": "Keep images for",
-        "days": "days"
+        "days": "days",
+        "forever": "Forever",
+        "disabled": "Disabled"
     ]
     
     static let de: [String: String] = [
@@ -192,10 +196,14 @@ struct Localization {
         // Settings - Storage
         "store_images": "Bilder speichern",
         "store_images_desc": "Kopierte Bilder im Verlauf speichern",
+        "text_retention": "Text-Aufbewahrung",
+        "image_retention": "Bild-Aufbewahrung",
         "retention": "Aufbewahrung",
         "keep_text": "Text behalten für",
         "keep_images": "Bilder behalten für",
-        "days": "Tage"
+        "days": "Tage",
+        "forever": "Für immer",
+        "disabled": "Deaktiviert"
     ]
     
     static func string(_ key: String, language: AppLanguage) -> String {
@@ -323,10 +331,14 @@ struct Localization {
         // Settings - Storage
         "store_images": "Guardar imágenes",
         "store_images_desc": "Guardar imágenes copiadas en el historial",
+        "text_retention": "Retención de texto",
+        "image_retention": "Retención de imágenes",
         "retention": "Retención",
         "keep_text": "Guardar texto por",
         "keep_images": "Guardar imágenes por",
-        "days": "días"
+        "days": "días",
+        "forever": "Para siempre",
+        "disabled": "Desactivado"
     ]
 
     static let fr: [String: String] = [
@@ -418,10 +430,14 @@ struct Localization {
         // Settings - Storage
         "store_images": "Garder les images",
         "store_images_desc": "Enregistrer les images copiées",
+        "text_retention": "Rétention de texte",
+        "image_retention": "Rétention d'images",
         "retention": "Rétention",
         "keep_text": "Garder le texte pour",
         "keep_images": "Garder les images pour",
-        "days": "jours"
+        "days": "jours",
+        "forever": "Pour toujours",
+        "disabled": "Désactivé"
     ]
 
     static let zh: [String: String] = [
@@ -513,10 +529,14 @@ struct Localization {
         // Settings - Storage
         "store_images": "存储图片",
         "store_images_desc": "保存复制的图片到历史",
+        "text_retention": "文本保留",
+        "image_retention": "图片保留",
         "retention": "保留时间",
         "keep_text": "文本保留",
         "keep_images": "图片保留",
-        "days": "天"
+        "days": "天",
+        "forever": "永久",
+        "disabled": "禁用"
     ]
 
     static let hi: [String: String] = [
@@ -608,9 +628,13 @@ struct Localization {
         // Settings - Storage
         "store_images": "छवियां स्टोर करें",
         "store_images_desc": "कॉपी की गई छवियां इतिहास में सहेजें",
+        "text_retention": "टेक्स्ट अवधारण",
+        "image_retention": "छवि अवधारण",
         "retention": "अवधारण",
         "keep_text": "टेक्स्ट रखें",
         "keep_images": "छवियां रखें",
-        "days": "दिन"
+        "days": "दिन",
+        "forever": "हमेशा के लिए",
+        "disabled": "अक्षम"
     ]
 }

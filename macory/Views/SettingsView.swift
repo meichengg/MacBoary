@@ -83,20 +83,24 @@ struct SettingsView: View {
             
             // Storage
             Section {
-                Toggle(isOn: $settingsManager.storeImages) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(settingsManager.localized("store_images"))
-                        Text(settingsManager.localized("store_images_desc"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Picker(settingsManager.localized("retention"), selection: $settingsManager.textRetentionDays) {
+                Picker(settingsManager.localized("text_retention"), selection: $settingsManager.textRetentionDays) {
+                    Text(settingsManager.localized("disabled")).tag(0)
                     Text("1 \(settingsManager.localized("days"))").tag(1)
                     Text("3 \(settingsManager.localized("days"))").tag(3)
                     Text("7 \(settingsManager.localized("days"))").tag(7)
+                    Text("14 \(settingsManager.localized("days"))").tag(14)
                     Text("30 \(settingsManager.localized("days"))").tag(30)
+                    Text(settingsManager.localized("forever")).tag(-1)
+                }
+                
+                Picker(settingsManager.localized("image_retention"), selection: $settingsManager.imageRetentionDays) {
+                    Text(settingsManager.localized("disabled")).tag(0)
+                    Text("1 \(settingsManager.localized("days"))").tag(1)
+                    Text("3 \(settingsManager.localized("days"))").tag(3)
+                    Text("7 \(settingsManager.localized("days"))").tag(7)
+                    Text("14 \(settingsManager.localized("days"))").tag(14)
+                    Text("30 \(settingsManager.localized("days"))").tag(30)
+                    Text(settingsManager.localized("forever")).tag(-1)
                 }
             } header: {
                 Label(settingsManager.localized("storage"), systemImage: "clock")
