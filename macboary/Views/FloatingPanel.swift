@@ -21,7 +21,7 @@ class FloatingPanel: NSPanel {
         // Panel configuration
         self.level = .floating
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        self.isMovableByWindowBackground = false
+        self.isMovableByWindowBackground = true
         self.isOpaque = false
         self.backgroundColor = .clear
         self.hasShadow = true
