@@ -22,8 +22,8 @@ class MenuBarController: NSObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: "Macory")
-            button.image?.isTemplate = true
+            button.image = NSImage(named: "MenuBarIcon")
+            button.image?.isTemplate = false
         }
         
         statusItem?.menu = createMenu()
