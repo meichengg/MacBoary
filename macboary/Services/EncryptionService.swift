@@ -80,26 +80,20 @@ class EncryptionService {
             keyData.resetBytes(in: 0..<keyData.count)
         }
         
-        // Create access control that allows the app to access without prompting
-        guard let access = SecAccessControlCreateWithFlags(
-            kCFAllocatorDefault,
-            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            [],  // No additional flags - allows access without user interaction
-            nil
-        ) else {
-            print("Failed to create access control")
-            return false
-        }
-        
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: keyIdentifier,
-            kSecValueData as String: keyData,
-            kSecAttrAccessControl as String: access
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecValueData as String: keyData
         ]
         
         // Delete any existing key first
-        let deleteStatus = SecItemDelete(query as CFDictionary)
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: keyIdentifier
+        ]
+        
+        let deleteStatus = SecItemDelete(deleteQuery as CFDictionary)
         if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
             print("Warning: Failed to delete existing keychain item: \(deleteStatus)")
             // Continue anyway - the add might still work
@@ -118,8 +112,9 @@ class EncryptionService {
     // MARK: - Keychain Access Status
     
     func hasKeychainAccess() -> Bool {
-        // Try to access the key to verify Keychain access
-        return encryptionKey != nil
+        // Try to access or create the real encryption key
+        // This will trigger keychain permission prompt if needed
+        return loadOrCreateKey() != nil
     }
     
     // MARK: - Encryption/Decryption

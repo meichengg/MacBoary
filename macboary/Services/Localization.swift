@@ -1179,6 +1179,67 @@ struct Localization {
             ru: "MacBoary нужен доступ для авто-вставки.\n\nПожалуйста, предоставьте доступ.",
             pt: "MacBoary precisa de permissão para colagem automática.\n\nPor favor, conceda.",
             it: "MacBoary necessita del permesso per l'incolla automatico.\n\nPer favore, concedi il permesso."
+        ),
+        "ok": LocalizedString(
+            en: "OK",
+            de: "OK",
+            es: "OK",
+            fr: "OK",
+            zh: "确定",
+            ja: "OK",
+            ko: "확인",
+            ru: "ОК",
+            pt: "OK",
+            it: "OK"
+        ),
+        "error_clipboard_manager": LocalizedString(
+            en: "Clipboard Manager Error",
+            de: "Zwischenablage-Manager Fehler",
+            es: "Error del gestor de portapapeles",
+            fr: "Erreur du gestionnaire de presse-papiers",
+            zh: "剪贴板管理器错误",
+            ja: "クリップボードマネージャーエラー",
+            ko: "클립보드 관리자 오류",
+            ru: "Ошибка менеджера буфера",
+            pt: "Erro do gerenciador de área de transferência",
+            it: "Errore gestore appunti"
+        ),
+        "error_encode_history": LocalizedString(
+            en: "Failed to encode clipboard history. Please restart the app.",
+            de: "Fehler beim Kodieren der Zwischenablage. Bitte starten Sie die App neu.",
+            es: "Error al codificar el historial. Por favor, reinicia la aplicación.",
+            fr: "Échec de l'encodage de l'historique. Veuillez redémarrer l'application.",
+            zh: "无法编码剪贴板历史记录。请重新启动应用程序。",
+            ja: "履歴のエンコードに失敗しました。アプリを再起動してください。",
+            ko: "기록 인코딩 실패. 앱을 다시 시작하세요.",
+            ru: "Ошибка кодирования истории. Перезапустите приложение.",
+            pt: "Falha ao codificar o histórico. Por favor, reinicie o aplicativo.",
+            it: "Impossibile codificare la cronologia. Riavvia l'app."
+        ),
+        "error_encrypt_history": LocalizedString(
+            en: "Failed to encrypt clipboard data. Check keychain access in App Settings.",
+            de: "Fehler beim Verschlüsseln der Daten. Überprüfen Sie den Schlüsselbund-Zugriff in den Einstellungen.",
+            es: "Error al encriptar datos. Verifica el acceso al llavero en Configuración.",
+            fr: "Échec du chiffrement. Vérifiez l'accès au trousseau dans les réglages.",
+            zh: "无法加密数据。请在设置中检查钥匙串访问权限。",
+            ja: "データの暗号化に失敗しました。設定でキーチェーンアクセスを確認してください。",
+            ko: "데이터 암호화 실패. 설정에서 키체인 접근을 확인하세요.",
+            ru: "Ошибка шифрования. Проверьте доступ к связке ключей в настройках.",
+            pt: "Falha ao criptografar. Verifique o acesso ao chaveiro nas configurações.",
+            it: "Impossibile cifrare i dati. Verifica l'accesso al portachiavi nelle impostazioni."
+        ),
+        "error_save_history": LocalizedString(
+            en: "Failed to save clipboard history to disk",
+            de: "Fehler beim Speichern der Zwischenablage",
+            es: "Error al guardar el historial en disco",
+            fr: "Échec de la sauvegarde de l'historique",
+            zh: "无法保存剪贴板历史记录到磁盘",
+            ja: "履歴をディスクに保存できませんでした",
+            ko: "기록을 디스크에 저장하지 못했습니다",
+            ru: "Ошибка сохранения истории",
+            pt: "Falha ao salvar o histórico no disco",
+            it: "Impossibile salvare la cronologia su disco"
         )
     ]
 }
+

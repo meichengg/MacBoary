@@ -391,7 +391,7 @@ class ClipboardManager: ObservableObject {
     private func saveHistory() {
         guard let encoded = try? JSONEncoder().encode(items) else {
             NSLog("❌ CRITICAL: Failed to encode clipboard items")
-            showCriticalError("Failed to encode clipboard history. Please restart the app.")
+            showCriticalError(SettingsManager.shared.localized("error_encode_history"))
             return
         }
         
@@ -401,7 +401,7 @@ class ClipboardManager: ObservableObject {
             
             // Show user-facing error
             print("Failed to encrypt clipboard data. History not saved.")
-            showCriticalError("Failed to encrypt clipboard data. Check keychain access in System Settings > Privacy & Security > Keychain.")
+            showCriticalError(SettingsManager.shared.localized("error_encrypt_history"))
             
             // Fallback: save unencrypted with warning if encryption is disabled
             if !UserDefaults.standard.bool(forKey: "encryptionEnabled") {
@@ -418,17 +418,17 @@ class ClipboardManager: ObservableObject {
             try encryptedData.write(to: historyFileURL, options: [.atomic, .completeFileProtection])
         } catch {
             NSLog("❌ CRITICAL: Failed to save clipboard history: \(error)")
-            showCriticalError("Failed to save clipboard history to disk: \(error.localizedDescription)")
+            showCriticalError("\(SettingsManager.shared.localized("error_save_history")): \(error.localizedDescription)")
         }
     }
     
     private func showCriticalError(_ message: String) {
         Task { @MainActor in
             let alert = NSAlert()
-            alert.messageText = "Clipboard Manager Error"
+            alert.messageText = SettingsManager.shared.localized("error_clipboard_manager")
             alert.informativeText = message
             alert.alertStyle = .critical
-            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: SettingsManager.shared.localized("ok"))
             alert.runModal()
         }
     }
