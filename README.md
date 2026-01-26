@@ -38,6 +38,20 @@ MacBoary is a lightweight, secure clipboard manager for macOS built with Swift a
 2. Open `macboary.xcodeproj` in Xcode.
 3. Build and run the `macboary` scheme.
 
+### macOS Security Notice
+
+Since the app is not yet code-signed (signing coming soon), macOS will show a security warning: **"Apple could not verify..."**
+
+To open the app:
+
+1. Try to open the app (double-click)
+2. Click **Done** when the warning appears
+3. Go to **System Settings** → **Privacy & Security** → **Security**
+4. Click **Open Anyway** next to the MacBoary warning
+5. Open the app again
+
+You only need to do this once. After the first launch, the app will open normally.
+
 ## Usage
 
 1. **Launch the App**: The app runs in the menu bar. Look for the icon in your status bar.
