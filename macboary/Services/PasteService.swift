@@ -17,6 +17,9 @@ class PasteService {
     // Captured by HotkeyManager before MacBoary takes focus.
     var targetAppBundleId: String?
     
+    // Store the actual app reference for focus restoration
+    var targetApp: NSRunningApplication?
+    
     private let rdpClients = ["com.lemonmojo.RoyalTSX.App", "com.microsoft.rdc.macos", "com.microsoft.rdc.mac"]
     
     private init() {}

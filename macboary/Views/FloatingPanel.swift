@@ -181,6 +181,14 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         stopEventMonitoring()
         panel?.orderOut(nil)
         isVisible = false
+        
+        // Restore focus to previous app (use targetApp captured by HotkeyManager before MacBoary activated)
+        if let targetApp = PasteService.shared.targetApp, !targetApp.isTerminated {
+            targetApp.activate()
+        } else if let previousApp = previousApp, !previousApp.isTerminated {
+            // Fallback to previousApp if targetApp not available
+            previousApp.activate()
+        }
     }
     
     @MainActor func togglePanel() {

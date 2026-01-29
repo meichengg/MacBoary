@@ -141,6 +141,7 @@ class HotkeyManager: ObservableObject {
                 // We save who we are stealing focus FROM, so PasteService knows who to paste TO.
                 if let frontApp = NSWorkspace.shared.frontmostApplication {
                     PasteService.shared.targetAppBundleId = frontApp.bundleIdentifier
+                    PasteService.shared.targetApp = frontApp
                     print("🎯 Target App Captured: \(frontApp.bundleIdentifier ?? "Unknown")")
                 }
                 
