@@ -281,6 +281,7 @@ struct ClipboardItemRow: View {
                 let iconName: String = {
                     if item.isPinned { return "pin.fill" }
                     if item.type == .image { return "photo" }
+                    if item.type == .file { return "doc" }
                     return "text.alignleft"
                 }()
                 
@@ -308,6 +309,27 @@ struct ClipboardItemRow: View {
                         }
                         .frame(height: 40)
                     }
+
+                } else if item.type == .file {
+                     // File Item
+                     HStack(spacing: 8) {
+                         if let path = item.filePath {
+                             Image(nsImage: NSWorkspace.shared.icon(forFile: path))
+                                 .resizable()
+                                 .aspectRatio(contentMode: .fit)
+                                 .frame(width: 32, height: 32)
+                         } else {
+                             Image(systemName: "doc.fill")
+                                 .font(.system(size: 24))
+                                 .foregroundColor(.secondary)
+                         }
+                         
+                         Text(item.displayText)
+                             .font(.system(size: 13, weight: .medium))
+                             .lineLimit(1)
+                             .truncationMode(.middle)
+                             .foregroundColor(isSelected ? .white : .primary)
+                     }
                 } else {
                     Text(item.displayText)
                         .font(.system(size: 13, weight: .regular))
@@ -379,16 +401,35 @@ struct ClipboardItemRow: View {
         .onAppear {
             if item.type == .image && thumbnail == nil {
                 if let path = item.imagePath {
-                    // Load off main thread to avoid stutter
-                    DispatchQueue.global(qos: .userInitiated).async {
-                        // Load thumbnail instead of full image
-                        let img = ClipboardManager.shared.getThumbnail(named: path, maxDimension: 300)
-                        DispatchQueue.main.async {
-                            withAnimation {
-                                self.thumbnail = img
+                     Task {
+                        // Offload I/O to detached task if getThumbnail is safe or ensure getThumbnail runs on correct actor
+                        // But getThumbnail in ClipboardManager is NOT isolated to non-main actor? 
+                        // Actually ClipboardManager is @MainActor, so calling it from background is tricky unless detached.
+                        
+                        // We need to fetch data. Let's do it carefully.
+                        // Since ClipboardManager is @MainActor, we should let it do the heavy lifting on a detached task IF it was designed so.
+                        // But getThumbnail is synchronous. We should move the heavy lifting inside getThumbnail to a detached task or similar?
+                        // Or just call it here. But we are on MainActor in .onAppear.
+                        // The previous code had DispatchQueue.global.
+                        
+                        // Let's rely on Image(contentsOf:) async loading or use a proper async image loader.
+                        // Or just run on MainActor but assume it's fast enough or accept the hit?
+                        // "getThumbnail" does file IO.
+                        
+                        // Better approach: Use Task.detached for the IO, accessing ONLY the path string (captured), then update MainActor.
+                        let loadedCGImage = await Task.detached(priority: .userInitiated) { () -> CGImage? in
+                            return ClipboardHelper.loadThumbnail(path: path)
+                        }.value
+                        
+                        if let cgImg = loadedCGImage {
+                            await MainActor.run {
+                                let nsImage = NSImage(cgImage: cgImg, size: NSSize(width: CGFloat(cgImg.width), height: CGFloat(cgImg.height)))
+                                withAnimation {
+                                    self.thumbnail = nsImage
+                                }
                             }
                         }
-                    }
+                     }
                 }
             }
         }

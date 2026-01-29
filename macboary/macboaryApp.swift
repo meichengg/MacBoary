@@ -12,9 +12,9 @@ struct macboaryApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
-        // Empty Settings scene - we handle everything via AppDelegate and menu bar
+        // Settings scene for Cmd+, shortcut
         Settings {
-            EmptyView()
+            SettingsView()
         }
     }
 }

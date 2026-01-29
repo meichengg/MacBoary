@@ -10,6 +10,7 @@ import Foundation
 enum ClipboardType: String, Codable {
     case text
     case image
+    case file
 }
 
 struct ClipboardItem: Identifiable, Equatable, Codable {
@@ -19,14 +20,16 @@ struct ClipboardItem: Identifiable, Equatable, Codable {
     var isPinned: Bool
     var type: ClipboardType
     var imagePath: String?
+    var filePath: String?
     
-    init(id: UUID = UUID(), content: String, timestamp: Date = Date(), isPinned: Bool = false, type: ClipboardType = .text, imagePath: String? = nil) {
+    init(id: UUID = UUID(), content: String, timestamp: Date = Date(), isPinned: Bool = false, type: ClipboardType = .text, imagePath: String? = nil, filePath: String? = nil) {
         self.id = id
         self.content = content
         self.timestamp = timestamp
         self.isPinned = isPinned
         self.type = type
         self.imagePath = imagePath
+        self.filePath = filePath
     }
     
     // Manual decoding to handle backward compatibility with existing data
@@ -40,6 +43,7 @@ struct ClipboardItem: Identifiable, Equatable, Codable {
         // New fields with defaults
         type = try container.decodeIfPresent(ClipboardType.self, forKey: .type) ?? .text
         imagePath = try container.decodeIfPresent(String.self, forKey: .imagePath)
+        filePath = try container.decodeIfPresent(String.self, forKey: .filePath)
     }
     
     var displayText: String {
@@ -53,6 +57,9 @@ struct ClipboardItem: Identifiable, Equatable, Codable {
             return singleLine.isEmpty ? "Empty Text" : singleLine
         case .image:
             return "Image"
+        case .file:
+            // Content stores filename
+            return content
         }
     }
     

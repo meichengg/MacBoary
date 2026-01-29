@@ -87,6 +87,7 @@ class SettingsManager: ObservableObject {
     private let textRetentionDaysKey = "textRetentionDays"
     private let imageRetentionDaysKey = "imageRetentionDays"
     private let maxHistoryItemsKey = "maxHistoryItems"
+    private let blacklistedAppsKey = "blacklistedApps"
     let encryptionEnabledKey = "encryptionEnabled"  // Public for first-launch dialog
     
     // For storing if accessibility info has been shown
@@ -233,6 +234,14 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var blacklistedApps: Set<String> {
+        didSet {
+            UserDefaults.standard.set(Array(blacklistedApps), forKey: blacklistedAppsKey)
+            // Post notification to update hotkey registration immediately
+            NotificationCenter.default.post(name: .blacklistChanged, object: nil)
+        }
+    }
+    
     private init() {
         self.showDockIcon = UserDefaults.standard.object(forKey: showDockIconKey) as? Bool ?? false
         self.quickPasteEnabled = UserDefaults.standard.object(forKey: quickPasteEnabledKey) as? Bool ?? true
@@ -304,6 +313,12 @@ class SettingsManager: ObservableObject {
             self.popupPosition = .center
         }
         
+        if let apps = UserDefaults.standard.stringArray(forKey: blacklistedAppsKey) {
+            self.blacklistedApps = Set(apps)
+        } else {
+            self.blacklistedApps = []
+        }
+        
         updateDockIconVisibility()
     }
     
@@ -344,9 +359,25 @@ class SettingsManager: ObservableObject {
             }
         }
     }
+    
+    
+    // MARK: - App Blacklist Management
+    
+    func addBlacklistedApp(bundleId: String) {
+        blacklistedApps.insert(bundleId)
+    }
+    
+    func removeBlacklistedApp(bundleId: String) {
+        blacklistedApps.remove(bundleId)
+    }
+    
+    func isAppBlacklisted(bundleId: String) -> Bool {
+        return blacklistedApps.contains(bundleId)
+    }
 }
 
 extension Notification.Name {
     static let languageDidChange = Notification.Name("languageDidChange")
     static let encryptionSettingChanged = Notification.Name("encryptionSettingChanged")
+    static let blacklistChanged = Notification.Name("blacklistChanged")
 }

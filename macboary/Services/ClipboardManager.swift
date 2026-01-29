@@ -148,12 +148,16 @@ class ClipboardManager: ObservableObject {
         
         // Main polling timer
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            self?.checkClipboard()
+            Task { @MainActor in
+                self?.checkClipboard()
+            }
         }
         
         // Periodic cleanup timer (every hour)
         cleanupTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
-            self?.cleanupOldItems()
+            Task { @MainActor in
+                self?.cleanupOldItems()
+            }
         }
     }
     
@@ -200,13 +204,20 @@ class ClipboardManager: ObservableObject {
                          return
                     }
                 }
-            } else {
-                // If images are disabled, do we skip or just ignore?
-                // If we return here, we might miss text that is also available.
-                // But usually if it's an image copy, primary type is image. 
-                // Let's allow falling through to text check if image storage is disabled 
-                // BUT only if there is text?
-                // Actually, if I copy an image, I don't want to save "Image" text if I disallowed images.
+            }
+        }
+        
+        // 2. Check for File (New)
+        if types.contains(.fileURL) {
+            if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
+               let url = urls.first {
+                // If we reached here, it wasn't processed as an image (or image storage disabled/failed).
+                // So we treat it as a generic file.
+                
+                let filename = url.lastPathComponent
+                let newItem = ClipboardItem(content: filename, type: .file, filePath: url.path)
+                add(newItem)
+                return
             }
         }
         
@@ -226,7 +237,7 @@ class ClipboardManager: ObservableObject {
         Task { @MainActor [weak self] in
             guard let self = self else { return }
             
-            // Handle duplication for Text
+            // Handle duplication for Text and Files
             if newItem.type == .text {
                 // Don't add duplicates at the top
                 if let firstItem = self.items.first, firstItem.type == .text, firstItem.content == newItem.content {
@@ -234,6 +245,13 @@ class ClipboardManager: ObservableObject {
                 }
                 // Remove existing duplicate if present
                 self.items.removeAll { $0.type == .text && $0.content == newItem.content }
+            } else if newItem.type == .file {
+                 // Don't add duplicate files at top
+                 if let firstItem = self.items.first, firstItem.type == .file, firstItem.filePath == newItem.filePath {
+                     return
+                 }
+                 // Remove existing duplicate file
+                 self.items.removeAll { $0.type == .file && $0.filePath == newItem.filePath }
             }
             
             // Add new item at the top (after pinned items)
@@ -269,6 +287,9 @@ class ClipboardManager: ObservableObject {
         
         if item.type == .image, let imagePath = item.imagePath, let image = getImage(named: imagePath) {
              pasteboard.writeObjects([image])
+        } else if item.type == .file, let filePath = item.filePath {
+             let url = URL(fileURLWithPath: filePath)
+             pasteboard.writeObjects([url as NSURL])
         } else {
              pasteboard.setString(item.content, forType: .string)
         }
@@ -286,7 +307,16 @@ class ClipboardManager: ObservableObject {
                 let pinnedCount = self.items.filter { $0.isPinned }.count
                 // Create new item with fresh timestamp (reuse image file for now, or copy?)
                 // We reuse the image file.
-                let refreshedItem = ClipboardItem(id: item.id, content: item.content, timestamp: Date(), isPinned: false, type: item.type, imagePath: item.imagePath)
+                // We reuse the image file.
+                let refreshedItem = ClipboardItem(
+                    id: item.id,
+                    content: item.content,
+                    timestamp: Date(),
+                    isPinned: false,
+                    type: item.type,
+                    imagePath: item.imagePath,
+                    filePath: item.filePath
+                )
                 self.items.insert(refreshedItem, at: pinnedCount)
                 self.saveHistory()
             }
@@ -368,7 +398,7 @@ class ClipboardManager: ObservableObject {
             self.items.removeAll { item in
                 if item.isPinned { return false }
                 
-                let cutoff = item.type == .image ? imageCutoff : textCutoff
+                let cutoff = item.type == .image ? imageCutoff : textCutoff // Files use text retention for now
                 if item.timestamp < cutoff {
                     itemsToDelete.append(item)
                     return true

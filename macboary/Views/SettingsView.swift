@@ -215,15 +215,80 @@ struct SettingsView: View {
                         }
                     }
                 }
+
             } header: {
                 Label(settingsManager.localized("permissions"), systemImage: "lock.shield")
             }
+            
+            // App Blacklist
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Prevent global hotkey in these apps:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    List {
+                        ForEach(Array(settingsManager.blacklistedApps).sorted(), id: \.self) { bundleId in
+                            HStack {
+                                // Try to get app name/icon
+                                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+                                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                        .resizable()
+                                        .frame(width: 16, height: 16)
+                                    Text(FileManager.default.displayName(atPath: url.path))
+                                } else {
+                                    Image(systemName: "app")
+                                    Text(bundleId)
+                                }
+                                Spacer()
+                                Button {
+                                    settingsManager.removeBlacklistedApp(bundleId: bundleId)
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundColor(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .frame(height: 100)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
+                    
+                    Button("Add Application...") {
+                        selectAppToAdd()
+                    }
+                }
+            } header: {
+                Label("App Blacklist", systemImage: "hand.raised.fill")
+            }
+            
         }
         .formStyle(.grouped)
         .frame(width: 450, height: 600)
         .preferredColorScheme(settingsManager.appTheme.colorScheme)
     }
+
+    private func selectAppToAdd() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                if let bundle = Bundle(url: url), let bundleId = bundle.bundleIdentifier {
+                    settingsManager.addBlacklistedApp(bundleId: bundleId)
+                }
+            }
+        }
+    }
 }
+
+
 
 struct ShortcutRecorder: NSViewRepresentable {
     @Binding var shortcut: GlobalKeyboardShortcut

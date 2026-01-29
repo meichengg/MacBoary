@@ -242,7 +242,9 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
             
             let mouseLocation = NSEvent.mouseLocation
             if !panel.frame.contains(mouseLocation) {
-                self.hidePanel()
+                Task { @MainActor in
+                    self.hidePanel()
+                }
             }
         }
         
@@ -250,106 +252,125 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self, self.isVisible else { return event }
             
-            // Allow typing in search field (don't capture if it's a character key, unless modifiers)
-            // But we need to capture navigation keys
-            
-            let filtered = self.filteredItems
-            
-            switch event.keyCode {
-            case 53: // Escape
-                self.hidePanel()
-                return nil // Consume event
-                
-            case 126: // Up arrow
-                self.viewModel.moveUp()
-                return nil // Consume event
-                
-            case 125: // Down arrow
-                let maxIndex: Int
-                if filtered.count > self.viewModel.displayedLimit {
-                    // Include "Load More" button as the last selectable item
-                    maxIndex = self.viewModel.displayedLimit
-                } else {
-                    maxIndex = filtered.count - 1
+            // NSEvent.addLocalMonitorForEvents runs on the main thread (MainActor context)
+            if Thread.isMainThread {
+                // Defines a sendable wrapper
+                final class Box<T>: @unchecked Sendable {
+                    let value: T
+                    init(_ value: T) { self.value = value }
                 }
-                self.viewModel.moveDown(maxIndex: maxIndex)
-                return nil // Consume event
+                let box = Box(event)
                 
-            case 36: // Return/Enter
-                if filtered.count > self.viewModel.displayedLimit && self.viewModel.selectionIndex == self.viewModel.displayedLimit {
-                    // Load More clicked
-                    self.viewModel.displayedLimit += self.viewModel.pageSize
-                    return nil
+                return MainActor.assumeIsolated {
+                    self.handleKeyDown(box.value)
                 }
-                
-                if self.viewModel.selectionIndex >= 0 && self.viewModel.selectionIndex < filtered.count {
-                    // Ensure we don't select hidden items
-                    if self.viewModel.selectionIndex < self.viewModel.displayedLimit {
-                        self.selectItem(filtered[self.viewModel.selectionIndex])
-                    }
+            } else {
+                // Fallback (should not happen for local monitor)
+                var result: NSEvent? = event
+                DispatchQueue.main.sync {
+                    result = self.handleKeyDown(event)
                 }
-                return nil // Consume event
-                
-            case 35: // Command+P for toggle pin
-                if event.modifierFlags.contains(.command) {
-                     // Check strictly less than displayedLimit so we don't try to pin the Load More button
-                     if self.viewModel.selectionIndex >= 0 &&
-                        self.viewModel.selectionIndex < filtered.count &&
-                        self.viewModel.selectionIndex < self.viewModel.displayedLimit {
-                        self.togglePin(filtered[self.viewModel.selectionIndex])
-                        return nil
-                    }
-                }
-                return event
-                
-            case 18, 19, 20, 21, 23, 22, 26, 28, 25: // 1-9 Keys
-                if SettingsManager.shared.quickPasteEnabled && event.modifierFlags.contains(.command) {
-                    // Map key code to index 0-8
-                    // 18->0, 19->1, 20->2, 21->3, 23->4, 22->5, 26->6, 28->7, 25->8
-                    var index: Int?
-                    switch event.keyCode {
-                    case 18: index = 0
-                    case 19: index = 1
-                    case 20: index = 2
-                    case 21: index = 3
-                    case 23: index = 4
-                    case 22: index = 5
-                    case 26: index = 6
-                    case 28: index = 7
-                    case 25: index = 8
-                    default: break
-                    }
-                    
-                    if let index = index, index < filtered.count {
-                        self.selectItem(filtered[index])
-                        return nil
-                    }
-                }
-                return event
-                
-            case 51: // Delete/Backspace
-                // Should only delete if not editing text field?
-                // Actually backspace is needed for search bar.
-                // We should only handle backspace as "Delete Item" if command is pressed or if search is empty?
-                // Standard behavior for these apps: Cmd+Backspace to delete item, Backspace filters.
-                // Or: Backspace deletes text, if text empty and item selected... maybe not.
-                // User requirement: "delete entries with backspace works"
-                // If we add search, backspace MUST edit text.
-                // Let's change item deletion to Cmd+Backspace or Fn+Backspace (Suppr)
-                // For now, let's let Backspace go through to the text field unless modifier is pressed.    
-                if event.modifierFlags.contains(.command) {
-                    if self.viewModel.selectionIndex >= 0 && self.viewModel.selectionIndex < filtered.count {
-                        self.deleteItem(filtered[self.viewModel.selectionIndex])
-                        return nil
-                    }
-                }
-                 return event
-                
-            default:
-                return event // Pass other keys through
+                return result
             }
         }
+            
+        }
+
+
+    @MainActor
+    private func handleKeyDown(_ event: NSEvent) -> NSEvent? {
+        // Allow typing in search field (don't capture if it's a character key, unless modifiers)
+        // Check for search field focus or similar if needed? 
+        // For now, MacBoary logic was: capture arrows, enter, specific hotkeys, pass rest.
+        
+        let filtered = self.filteredItems
+        
+        switch event.keyCode {
+        case 53: // Escape
+            self.hidePanel()
+            return nil // Consume event
+            
+        case 126: // Up arrow
+            self.viewModel.moveUp()
+            return nil // Consume event
+            
+        case 125: // Down arrow
+            let maxIndex: Int
+            if filtered.count > self.viewModel.displayedLimit {
+                // Include "Load More" button as the last selectable item
+                maxIndex = self.viewModel.displayedLimit
+            } else {
+                maxIndex = filtered.count - 1
+            }
+            self.viewModel.moveDown(maxIndex: maxIndex)
+            return nil // Consume event
+            
+        case 36: // Return/Enter
+            if filtered.count > self.viewModel.displayedLimit && self.viewModel.selectionIndex == self.viewModel.displayedLimit {
+                // Load More clicked
+                self.viewModel.displayedLimit += self.viewModel.pageSize
+                return nil
+            }
+            
+            if self.viewModel.selectionIndex >= 0 && self.viewModel.selectionIndex < filtered.count {
+                // Ensure we don't select hidden items
+                if self.viewModel.selectionIndex < self.viewModel.displayedLimit {
+                    self.selectItem(filtered[self.viewModel.selectionIndex])
+                }
+            }
+            return nil // Consume event
+            
+        case 35: // Command+P for toggle pin
+            if event.modifierFlags.contains(.command) {
+                 // Check strictly less than displayedLimit so we don't try to pin the Load More button
+                 if self.viewModel.selectionIndex >= 0 &&
+                    self.viewModel.selectionIndex < filtered.count &&
+                    self.viewModel.selectionIndex < self.viewModel.displayedLimit {
+                    self.togglePin(filtered[self.viewModel.selectionIndex])
+                    return nil
+                }
+            }
+            return event
+            
+        case 18, 19, 20, 21, 23, 22, 26, 28, 25: // 1-9 Keys
+            if SettingsManager.shared.quickPasteEnabled && event.modifierFlags.contains(.command) {
+                // Map key code to index 0-8
+                // 18->0, 19->1, 20->2, 21->3, 23->4, 22->5, 26->6, 28->7, 25->8
+                var index: Int?
+                switch event.keyCode {
+                case 18: index = 0
+                case 19: index = 1
+                case 20: index = 2
+                case 21: index = 3
+                case 23: index = 4
+                case 22: index = 5
+                case 26: index = 6
+                case 28: index = 7
+                case 25: index = 8
+                default: break
+                }
+                
+                if let index = index, index < filtered.count {
+                    self.selectItem(filtered[index])
+                    return nil
+                }
+            }
+            return event
+            
+        case 51: // Delete/Backspace
+            if event.modifierFlags.contains(.command) {
+                if self.viewModel.selectionIndex >= 0 && self.viewModel.selectionIndex < filtered.count {
+                    self.deleteItem(filtered[self.viewModel.selectionIndex])
+                    return nil
+                }
+            }
+             return event
+            
+        default:
+            return event // Pass other keys through
+        }
     }
+
     
     private func stopEventMonitoring() {
         if let monitor = eventMonitor {
