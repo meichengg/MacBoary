@@ -145,15 +145,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
              if response == .alertFirstButtonReturn {
                  PermissionManager.shared.openAccessibilityPreferences()
                  
-                 // Show "Waiting" confirmation to pause the loop until user is ready
+                 // Show "Waiting" confirmation
                  let waitAlert = NSAlert()
                  waitAlert.messageText = "Waiting for Permission..."
-                 waitAlert.informativeText = "Please toggle the permission in System Settings, then click Done."
+                 waitAlert.informativeText = "1. Find 'MacBoary' in the list.\n2. Click the checkbox to enable it.\n3. If already enabled, toggle it OFF and ON again.\n4. Click 'Done' below."
                  waitAlert.addButton(withTitle: "Done")
-                 waitAlert.runModal()
                  
-                 // Check again recursively
-                 checkAccessibilityBlocking()
+                 let _ = waitAlert.runModal()
+                 
+                 // Check immediately after they say they are done
+                 if PermissionManager.shared.hasAccessibilityPermission {
+                     // Success!
+                     FloatingPanelController.shared.setReady(true)
+                     registerHotkey()
+                 } else {
+                     // Still failed? TCC issue likely
+                     let failAlert = NSAlert()
+                     failAlert.messageText = "Permission Not Detected"
+                     failAlert.informativeText = "macOS controls this permission strictly.\n\nTry these steps:\n- Remove MacBoary from the list (use '-' button)\n- Drag MacBoary into the list again\n- Or restart the app."
+                     failAlert.alertStyle = .warning
+                     failAlert.addButton(withTitle: "Try Again")
+                     failAlert.addButton(withTitle: "Quit")
+                     
+                     let failResponse = failAlert.runModal()
+                     if failResponse == .alertFirstButtonReturn {
+                         checkAccessibilityBlocking()
+                     } else {
+                         NSApp.terminate(nil)
+                     }
+                 }
              } else {
                  NSApp.terminate(nil)
              }

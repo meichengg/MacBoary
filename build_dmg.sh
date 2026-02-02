@@ -30,13 +30,18 @@ echo "📤 Exporting..."
 mkdir -p "$EXPORT_PATH"
 cp -r "$ARCHIVE_PATH/Products/Applications/$APP_NAME.app" "$EXPORT_PATH/$APP_NAME.app"
 
+# Explicitly re-sign with entitlements to ensure TCC stability
+echo "🔏 Signing with entitlements..."
+codesign --force --deep --sign - --entitlements macboary/macboary.entitlements "$EXPORT_PATH/$APP_NAME.app"
+
 # Create DMG
 echo "💿 Creating DMG..."
 mkdir -p "$BUILD_DIR/dmg_root"
 cp -r "$EXPORT_PATH/$APP_NAME.app" "$BUILD_DIR/dmg_root/"
 ln -s /Applications "$BUILD_DIR/dmg_root/Applications"
 
-hdiutil create -volname "$APP_NAME" -srcfolder "$BUILD_DIR/dmg_root" -ov -format UDZO "$DMG_PATH"
+# Create DMG (Optimized: HFS+ filesystem, LZFSE compression)
+hdiutil create -volname "$APP_NAME" -srcfolder "$BUILD_DIR/dmg_root" -ov -fs HFS+ -format ULFO "$DMG_PATH"
 
 echo "✅ DMG created at $DMG_PATH"
 open "$BUILD_DIR"
