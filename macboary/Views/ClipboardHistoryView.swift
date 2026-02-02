@@ -11,19 +11,17 @@ struct ClipboardHistoryView: View {
     @ObservedObject var clipboardManager = ClipboardManager.shared
     @ObservedObject var settingsManager = SettingsManager.shared
     @ObservedObject var viewModel: HistoryViewModel
-    var onSelect: (ClipboardItem) -> Void
+    
+    // Actions
+    var onConfirm: (ClipboardItem) -> Void // Double click or Enter -> Stick/Paste
+    var onSelect: (ClipboardItem) -> Void  // Single click or Arrow -> Highlight/Preview
     var onDelete: (ClipboardItem) -> Void
     var onPin: (ClipboardItem) -> Void
     
     // Computed property for filtered items - recalculates when dependencies change
+    // Computed property for filtered items - usage of ViewModel's optimized list
     private var filteredItems: [ClipboardItem] {
-        if viewModel.searchText.isEmpty {
-            return clipboardManager.items
-        } else {
-            return clipboardManager.items.filter {
-                $0.content.localizedCaseInsensitiveContains(viewModel.searchText)
-            }
-        }
+        return viewModel.filteredItems
     }
     
     // Focus state for search field
@@ -36,11 +34,25 @@ struct ClipboardHistoryView: View {
             Divider()
                 .opacity(0.4)
             
-            permissionWarningView
+            // Permission warning removed as it is handled at app launch
             
-            contentView
+            // Split Content View
+            HStack(spacing: 0) {
+                // Left Column: List (40%)
+                contentView
+                    .frame(width: 300)
+                
+                Divider()
+                
+                // Right Column: Preview (60%)
+                ClipboardPreviewView(
+                    item: selectedItem,
+                    searchText: viewModel.searchText
+                )
+                .frame(maxWidth: .infinity)
+            }
         }
-        .frame(width: 400, height: 500)
+        .frame(width: 750, height: 500)
         .background(
             Group {
                 if settingsManager.useCustomColors {
@@ -52,6 +64,15 @@ struct ClipboardHistoryView: View {
         )
         .preferredColorScheme(settingsManager.appTheme.colorScheme)
         .tint(settingsManager.useCustomColors ? settingsManager.customAccentColor.color : nil)
+    }
+    
+    // Helper to get selected item safely
+    private var selectedItem: ClipboardItem? {
+        // If searching, items might change order, but selectionIndex acts on displayed list
+        if viewModel.selectionIndex >= 0 && viewModel.selectionIndex < filteredItems.count {
+            return filteredItems[viewModel.selectionIndex]
+        }
+        return nil
     }
     
     // Extract header into computed property to help type checker
@@ -69,6 +90,9 @@ struct ClipboardHistoryView: View {
                     .focused($isSearchFocused)
                     .onAppear {
                         // Auto focus when created
+                        isSearchFocused = true
+                    }
+                    .onChange(of: viewModel.shouldFocusSearch) { _ in
                         isSearchFocused = true
                     }
                 
@@ -104,31 +128,7 @@ struct ClipboardHistoryView: View {
         }
     }
     
-    @ViewBuilder
-    private var permissionWarningView: some View {
-        if !PermissionManager.shared.hasAccessibilityPermission {
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
-                    .font(.system(size: 14))
-                Text(settingsManager.localized("permission_warning"))
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-                Spacer()
-                Button(settingsManager.localized("grant_access")) {
-                    PermissionManager.shared.openAccessibilityPreferences()
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.orange.opacity(0.1))
-            
-            Divider()
-                .opacity(0.4)
-        }
-    }
+
     
     @ViewBuilder
     private var contentView: some View {
@@ -149,11 +149,6 @@ struct ClipboardHistoryView: View {
                 Text(viewModel.searchText.isEmpty ? settingsManager.localized("no_history") : settingsManager.localized("no_results"))
                     .font(.headline)
                     .foregroundColor(.secondary)
-                if viewModel.searchText.isEmpty {
-                    Text(settingsManager.localized("copy_start"))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.clear) // Transparent list background
@@ -168,6 +163,7 @@ struct ClipboardHistoryView: View {
                                 item: item,
                                 index: index,
                                 isSelected: index == viewModel.selectionIndex,
+                                onConfirm: { onConfirm(item) },
                                 onSelect: { onSelect(item) },
                                 onDelete: { onDelete(item) },
                                 onPin: { onPin(item) }
@@ -176,36 +172,21 @@ struct ClipboardHistoryView: View {
                         }
                         
                         if filteredItems.count > viewModel.displayedLimit {
-                            Button(action: {
-                                withAnimation {
-                                    viewModel.displayedLimit += viewModel.pageSize
+                            // Infinite scroll loader
+                            Color.clear
+                                .frame(height: 20)
+                                .onAppear {
+                                    viewModel.loadMore()
                                 }
-                            }) {
-                                HStack {
-                                    Spacer()
-                                    Text(settingsManager.localized("load_more"))
-                                        .font(.system(size: 13, weight: .medium))
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 11))
-                                    Spacer()
-                                }
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(viewModel.selectionIndex == viewModel.displayedLimit ? Color.accentColor : Color.secondary.opacity(0.1))
-                                )
-                                .foregroundColor(viewModel.selectionIndex == viewModel.displayedLimit ? .white : .primary)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .id("load-more-\(viewModel.displayedLimit)")
+                                .id("load-more-\(viewModel.displayedLimit)")
                         }
                     }
                     .padding(.vertical, 6)
                     .padding(.horizontal, 8)
                     .id(viewModel.displayedLimit) // Force re-render when limit changes
                 }
-                .onChange(of: viewModel.selectionIndex) { newIndex in
+                .onChange(of: viewModel.scrollToIndex) { newIndex in
+                    guard let newIndex = newIndex else { return }
                     // Scroll to item
                     if newIndex >= 0 && newIndex < filteredItems.count {
                         let item = filteredItems[newIndex]
@@ -222,7 +203,8 @@ struct ClipboardHistoryView: View {
             }
         }
         
-        footerView
+        // Remove footer view from here as it's better placed in the list column if needed, or omitted for cleaner UI
+        // footerView 
     }
     
     private var footerView: some View {
@@ -263,7 +245,9 @@ struct ClipboardItemRow: View {
     let item: ClipboardItem
     let index: Int
     let isSelected: Bool
-    var onSelect: () -> Void
+    
+    var onConfirm: () -> Void // Double click
+    var onSelect: () -> Void  // Single click
     var onDelete: () -> Void
     var onPin: () -> Void
     
@@ -392,9 +376,12 @@ struct ClipboardItemRow: View {
                 .fill(isSelected ? (settingsManager.useCustomColors ? settingsManager.customAccentColor.color : Color.accentColor) : (isHovered ? Color.secondary.opacity(0.05) : Color.clear))
         )
         .contentShape(Rectangle())
-        .onTapGesture {
-            onSelect()
+        .onTapGesture(count: 2) {
+            onConfirm()
         }
+        .simultaneousGesture(TapGesture().onEnded {
+            onSelect()
+        })
         .onHover { hovering in
             isHovered = hovering
         }
@@ -411,10 +398,6 @@ struct ClipboardItemRow: View {
                         // But getThumbnail is synchronous. We should move the heavy lifting inside getThumbnail to a detached task or similar?
                         // Or just call it here. But we are on MainActor in .onAppear.
                         // The previous code had DispatchQueue.global.
-                        
-                        // Let's rely on Image(contentsOf:) async loading or use a proper async image loader.
-                        // Or just run on MainActor but assume it's fast enough or accept the hit?
-                        // "getThumbnail" does file IO.
                         
                         // Better approach: Use Task.detached for the IO, accessing ONLY the path string (captured), then update MainActor.
                         let loadedCGImage = await Task.detached(priority: .userInitiated) { () -> CGImage? in
@@ -439,6 +422,7 @@ struct ClipboardItemRow: View {
 #Preview {
     ClipboardHistoryView(
         viewModel: HistoryViewModel(),
+        onConfirm: { _ in },
         onSelect: { _ in },
         onDelete: { _ in },
         onPin: { _ in }

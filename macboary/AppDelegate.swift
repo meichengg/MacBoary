@@ -102,8 +102,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Permission was granted, re-register hotkey to ensure it works
         registerHotkey()
         
-        // Open the floating panel to show it's ready
-        FloatingPanelController.shared.showPanel()
+        // Note: Do NOT show panel automatically on grant, let user open it via Hotkey or Dock
     }
     
     // MARK: - Permission Sequence
@@ -115,38 +114,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.showEncryptionOptIn { encryptionEnabled in
                     
-                    @MainActor func completeSetup() {
-                         // Step 3: Show info pop up about accessibility
-                        self.showAccessibilityInfo {
-                            // Step 4: Request accessibility permission
-                            self.requestAccessibilityIfNeeded()
-                            
-                            // Setup complete, allow main window
-                            FloatingPanelController.shared.setReady(true)
-                            
-                            // If permission is already present (unlikely but possible), show the panel now
-                            if PermissionManager.shared.hasAccessibilityPermission {
-                                FloatingPanelController.shared.showPanel()
-                            }
-                        }
-                    }
-                    
                     // Step 2: Test Keychain access if encryption is enabled
                     if encryptionEnabled {
                         self.testKeychainAccess {
-                            completeSetup()
+                             self.checkAccessibilityBlocking()
                         }
                     } else {
-                        completeSetup()
+                        self.checkAccessibilityBlocking()
                     }
                 }
             }
         } else {
-            // Not first launch, just request accessibility if needed
-            requestAccessibilityIfNeeded()
-            
-            // Not first launch, ready immediately
-            FloatingPanelController.shared.setReady(true)
+            // Not first launch
+            checkAccessibilityBlocking()
+        }
+    }
+    
+    @MainActor
+    private func checkAccessibilityBlocking() {
+        // Loop until permission is granted or user quits
+        if !PermissionManager.shared.hasAccessibilityPermission {
+             let alert = NSAlert()
+             alert.messageText = "Accessibility Permission Required"
+             alert.informativeText = "MacBoary needs Accessibility access to copy/paste. Please grant access in System Settings."
+             alert.alertStyle = .critical
+             alert.addButton(withTitle: "Open Settings")
+             alert.addButton(withTitle: "Quit")
+             
+             let response = alert.runModal()
+             if response == .alertFirstButtonReturn {
+                 PermissionManager.shared.openAccessibilityPreferences()
+                 
+                 // Show "Waiting" confirmation to pause the loop until user is ready
+                 let waitAlert = NSAlert()
+                 waitAlert.messageText = "Waiting for Permission..."
+                 waitAlert.informativeText = "Please toggle the permission in System Settings, then click Done."
+                 waitAlert.addButton(withTitle: "Done")
+                 waitAlert.runModal()
+                 
+                 // Check again recursively
+                 checkAccessibilityBlocking()
+             } else {
+                 NSApp.terminate(nil)
+             }
+        } else {
+             // Permission Granted / Already Present
+             FloatingPanelController.shared.setReady(true)
+             registerHotkey()
+             // Do NOT show panel automatically. User must use hotkey.
         }
     }
     
@@ -174,24 +189,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @MainActor
-    private func showAccessibilityInfo(completion: @escaping () -> Void) {
-        // Only show if we don't have permission yet and haven't shown it before
-        if !PermissionManager.shared.hasAccessibilityPermission && !SettingsManager.shared.accessibilityInfoShown {
-            let settings = SettingsManager.shared
-            let alert = NSAlert()
-            alert.messageText = settings.localized("accessibility_info_title")
-            alert.informativeText = settings.localized("accessibility_info_message")
-            alert.alertStyle = .informational
-            alert.icon = NSImage(named: "AboutIcon")
-            alert.addButton(withTitle: "OK")
-            
-            alert.runModal()
-            SettingsManager.shared.accessibilityInfoShown = true
-        }
-        completion()
-    }
-    
-    @MainActor
     private func testKeychainAccess(completion: @escaping () -> Void) {
         // Test Keychain access by attempting to access the encryption key
         DispatchQueue.global(qos: .userInitiated).async {
@@ -212,13 +209,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 completion()
             }
-        }
-    }
-    
-    @MainActor
-    private func requestAccessibilityIfNeeded() {
-        if !PermissionManager.shared.hasAccessibilityPermission {
-            PermissionManager.shared.checkAndRequestPermissions()
         }
     }
 }

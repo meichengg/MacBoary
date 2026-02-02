@@ -91,11 +91,24 @@ class PermissionManager {
     }
     
     func openAccessibilityPreferences() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
-            print("Failed to create accessibility preferences URL")
-            return
+        // Try multiple URLs to support different macOS versions (13+ System Settings vs 12- System Preferences)
+        let candidates = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "x-apple.systempreferences:com.apple.preference.security"
+        ]
+        
+        var opened = false
+        for candidate in candidates {
+            if let url = URL(string: candidate), NSWorkspace.shared.open(url) {
+                opened = true
+                break
+            }
         }
-        NSWorkspace.shared.open(url)
+        
+        if !opened {
+            print("Failed to open Accessibility Preferences")
+        }
+        
         isRequestingPermission = true
         permissionRequestStarted = true
         

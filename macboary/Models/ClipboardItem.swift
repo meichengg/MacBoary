@@ -14,6 +14,12 @@ enum ClipboardType: String, Codable {
 }
 
 struct ClipboardItem: Identifiable, Equatable, Codable {
+    var searchKey: String = "" // In-memory optimization for search
+    
+    enum CodingKeys: String, CodingKey {
+        case id, content, timestamp, isPinned, type, imagePath, filePath
+    }
+    
     let id: UUID
     let content: String
     let timestamp: Date
@@ -30,6 +36,8 @@ struct ClipboardItem: Identifiable, Equatable, Codable {
         self.type = type
         self.imagePath = imagePath
         self.filePath = filePath
+        // Pre-compute normalized search key (limited length for speed)
+        self.searchKey = content.prefix(10000).lowercased()
     }
     
     // Manual decoding to handle backward compatibility with existing data
@@ -44,12 +52,18 @@ struct ClipboardItem: Identifiable, Equatable, Codable {
         type = try container.decodeIfPresent(ClipboardType.self, forKey: .type) ?? .text
         imagePath = try container.decodeIfPresent(String.self, forKey: .imagePath)
         filePath = try container.decodeIfPresent(String.self, forKey: .filePath)
+        
+        // Compute search key
+        searchKey = content.prefix(10000).lowercased()
     }
     
     var displayText: String {
         switch type {
         case .text:
-            let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Optimization: Only process first 300 chars for preview calculation
+            // This prevents "trimmingCharacters" from scanning entire 10MB strings
+            let prefix = content.prefix(300)
+            let trimmed = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
             let singleLine = trimmed.replacingOccurrences(of: "\n", with: " ")
             if singleLine.count > 100 {
                 return String(singleLine.prefix(100)) + "..."
