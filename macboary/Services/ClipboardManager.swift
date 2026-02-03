@@ -509,4 +509,97 @@ class ClipboardManager: ObservableObject {
             }
         }
     }
+    
+    // MARK: - Import/Export
+    
+    /// Export data as encrypted blob for backup/transfer
+    func exportData() -> Data? {
+        // Encode items to JSON
+        guard let jsonData = try? JSONEncoder().encode(items) else {
+            print("❌ Failed to encode items for export")
+            return nil
+        }
+        
+        // Encrypt with current password
+        guard let encrypted = EncryptionService.shared.encryptData(jsonData) else {
+            print("❌ Failed to encrypt data for export")
+            return nil
+        }
+        
+        // Create export package: salt + verifier + encrypted data
+        var exportPackage = Data()
+        
+        // Include salt and verifier so import can use same password
+        if let salt = UserDefaults.standard.data(forKey: "com.macboary.encryption.salt"),
+           let verifier = UserDefaults.standard.data(forKey: "com.macboary.encryption.verifier") {
+            // Format: [4 bytes salt length][salt][4 bytes verifier length][verifier][encrypted data]
+            var saltLen = UInt32(salt.count)
+            exportPackage.append(Data(bytes: &saltLen, count: 4))
+            exportPackage.append(salt)
+            
+            var verifierLen = UInt32(verifier.count)
+            exportPackage.append(Data(bytes: &verifierLen, count: 4))
+            exportPackage.append(verifier)
+        } else {
+            // No encryption configured, just export raw encrypted (or plain) data
+            var zero: UInt32 = 0
+            exportPackage.append(Data(bytes: &zero, count: 4))
+            exportPackage.append(Data(bytes: &zero, count: 4))
+        }
+        
+        exportPackage.append(encrypted)
+        return exportPackage
+    }
+    
+    /// Import data from backup, requires same password
+    func importData(_ data: Data) -> Bool {
+        guard data.count > 8 else { return false }
+        
+        var offset = 0
+        
+        // Read salt length
+        let saltLen = data.subdata(in: offset..<(offset+4)).withUnsafeBytes { $0.load(as: UInt32.self) }
+        offset += 4
+        
+        if saltLen > 0 {
+            // Read salt
+            let salt = data.subdata(in: offset..<(offset+Int(saltLen)))
+            offset += Int(saltLen)
+            
+            // Read verifier length
+            let verifierLen = data.subdata(in: offset..<(offset+4)).withUnsafeBytes { $0.load(as: UInt32.self) }
+            offset += 4
+            
+            // Read verifier
+            let verifier = data.subdata(in: offset..<(offset+Int(verifierLen)))
+            offset += Int(verifierLen)
+            
+            // Store imported salt and verifier (will be used if passwords match)
+            UserDefaults.standard.set(salt, forKey: "com.macboary.encryption.salt")
+            UserDefaults.standard.set(verifier, forKey: "com.macboary.encryption.verifier")
+        } else {
+            offset += 4 // Skip verifier length
+        }
+        
+        // Remaining is encrypted data
+        let encryptedData = data.subdata(in: offset..<data.count)
+        
+        // Decrypt with current key
+        guard let decrypted = EncryptionService.shared.decryptData(encryptedData) else {
+            print("❌ Failed to decrypt imported data")
+            return false
+        }
+        
+        // Decode items
+        guard let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: decrypted) else {
+            print("❌ Failed to decode imported items")
+            return false
+        }
+        
+        // Merge or replace
+        items = decoded
+        saveHistory()
+        
+        return true
+    }
 }

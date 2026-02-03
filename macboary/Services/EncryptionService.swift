@@ -7,125 +7,146 @@
 
 import Foundation
 import CryptoKit
-import Security
+import CommonCrypto
 
 class EncryptionService {
     static let shared = EncryptionService()
     
-    private let keyIdentifier = "com.macboary.encryption.key"
+    private let saltKey = "com.macboary.encryption.salt"
+    private let verifierKey = "com.macboary.encryption.verifier"
     
-    // Lazy loaded key
+    // Current encryption key (derived from password)
     private var _encryptionKey: SymmetricKey?
-    private var encryptionKey: SymmetricKey? {
-        // Only load if encryption is enabled or we need to access it explicitly
-        // Logic: if _encryptionKey is loaded, return it.
-        // If not, check if we should load it.
-        if let key = _encryptionKey {
-            return key
-        }
-        
-        // If encryption is enabled, try to load/create
-        if UserDefaults.standard.bool(forKey: "encryptionEnabled") {
-            _encryptionKey = loadOrCreateKey()
-            return _encryptionKey
-        }
-        
-        return nil
+    
+    // Is encryption unlocked this session?
+    var isUnlocked: Bool {
+        return _encryptionKey != nil
     }
     
-    private init() {
-        // Do not load key in init to prevent early Keychain access prompt
+    // Is encryption enabled and configured (password set)?
+    var isConfigured: Bool {
+        return UserDefaults.standard.bool(forKey: "encryptionEnabled") &&
+               UserDefaults.standard.data(forKey: saltKey) != nil
     }
     
-    // MARK: - Key Management
+    private init() {}
     
-    private func loadOrCreateKey() -> SymmetricKey? {
-        // Try to load existing key from Keychain
-        if let existingKey = loadKeyFromKeychain() {
-            return existingKey
-        }
+    // MARK: - Password Management
+    
+    /// Set a new password (first time or change password)
+    func setPassword(_ password: String) -> Bool {
+        guard !password.isEmpty else { return false }
         
-        // Generate new key if none exists
-        let newKey = SymmetricKey(size: .bits256)
-        if saveKeyToKeychain(newKey) {
-            return newKey
-        }
+        // Generate random salt
+        var salt = Data(count: 32)
+        _ = salt.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 32, $0.baseAddress!) }
         
-        return nil
+        // Derive key from password
+        guard let key = deriveKey(from: password, salt: salt) else { return false }
+        
+        // Create verifier (encrypt a known string to verify password later)
+        let verifierPlaintext = "MACBOARY_VERIFIER"
+        guard let verifierData = verifierPlaintext.data(using: .utf8) else { return false }
+        
+        do {
+            let sealedBox = try AES.GCM.seal(verifierData, using: key)
+            guard let combined = sealedBox.combined else { return false }
+            
+            // Save salt and verifier
+            UserDefaults.standard.set(salt, forKey: saltKey)
+            UserDefaults.standard.set(combined, forKey: verifierKey)
+            UserDefaults.standard.set(true, forKey: "encryptionEnabled")
+            
+            // Keep key in memory
+            _encryptionKey = key
+            
+            return true
+        } catch {
+            print("❌ Failed to create verifier: \(error)")
+            return false
+        }
     }
     
-    private func loadKeyFromKeychain() -> SymmetricKey? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keyIdentifier,
-            kSecReturnData as String: true
-        ]
-        
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        
-        guard status == errSecSuccess,
-              let keyData = result as? Data else {
-            return nil
-        }
-        
-        return SymmetricKey(data: keyData)
-    }
-    
-    private func saveKeyToKeychain(_ key: SymmetricKey) -> Bool {
-        var keyData = key.withUnsafeBytes { Data($0) }
-        
-        // Ensure sensitive key data is zeroed out after use
-        defer {
-            keyData.resetBytes(in: 0..<keyData.count)
-        }
-        
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keyIdentifier,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            kSecValueData as String: keyData
-        ]
-        
-        // Delete any existing key first
-        let deleteQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keyIdentifier
-        ]
-        
-        let deleteStatus = SecItemDelete(deleteQuery as CFDictionary)
-        if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
-            print("Warning: Failed to delete existing keychain item: \(deleteStatus)")
-            // Continue anyway - the add might still work
-        }
-        
-        // Add new key
-        let status = SecItemAdd(query as CFDictionary, nil)
-        if status != errSecSuccess {
-            print("Failed to save key to keychain: \(status)")
+    /// Unlock encryption with password
+    func unlock(password: String) -> Bool {
+        guard let salt = UserDefaults.standard.data(forKey: saltKey),
+              let verifierData = UserDefaults.standard.data(forKey: verifierKey) else {
             return false
         }
         
-        return true
+        guard let key = deriveKey(from: password, salt: salt) else { return false }
+        
+        // Verify password by decrypting verifier
+        do {
+            let sealedBox = try AES.GCM.SealedBox(combined: verifierData)
+            let decryptedData = try AES.GCM.open(sealedBox, using: key)
+            let verifierString = String(data: decryptedData, encoding: .utf8)
+            
+            if verifierString == "MACBOARY_VERIFIER" {
+                _encryptionKey = key
+                return true
+            }
+        } catch {
+            print("❌ Password verification failed: \(error)")
+        }
+        
+        return false
     }
     
-    // MARK: - Keychain Access Status
+    /// Lock encryption (clear key from memory)
+    func lock() {
+        _encryptionKey = nil
+    }
     
-    func hasKeychainAccess() -> Bool {
-        // Try to access or create the real encryption key
-        // This will trigger keychain permission prompt if needed
-        return loadOrCreateKey() != nil
+    /// Remove password and disable encryption
+    func removePassword() {
+        _encryptionKey = nil
+        UserDefaults.standard.removeObject(forKey: saltKey)
+        UserDefaults.standard.removeObject(forKey: verifierKey)
+        UserDefaults.standard.set(false, forKey: "encryptionEnabled")
+    }
+    
+    // MARK: - Key Derivation (PBKDF2)
+    
+    private func deriveKey(from password: String, salt: Data) -> SymmetricKey? {
+        guard let passwordData = password.data(using: .utf8) else { return nil }
+        
+        var derivedKeyData = Data(count: 32) // 256 bits
+        
+        let result = derivedKeyData.withUnsafeMutableBytes { derivedKeyBytes in
+            salt.withUnsafeBytes { saltBytes in
+                passwordData.withUnsafeBytes { passwordBytes in
+                    CCKeyDerivationPBKDF(
+                        CCPBKDFAlgorithm(kCCPBKDF2),
+                        passwordBytes.baseAddress?.assumingMemoryBound(to: Int8.self),
+                        passwordData.count,
+                        saltBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                        salt.count,
+                        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+                        100_000, // iterations (balance between security and speed)
+                        derivedKeyBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                        32
+                    )
+                }
+            }
+        }
+        
+        guard result == kCCSuccess else {
+            print("❌ PBKDF2 key derivation failed")
+            return nil
+        }
+        
+        return SymmetricKey(data: derivedKeyData)
     }
     
     // MARK: - Encryption/Decryption
     
     func encrypt(_ string: String) -> String? {
-        // Check if encryption is enabled (direct UserDefaults access to avoid actor isolation issues)
         guard UserDefaults.standard.bool(forKey: "encryptionEnabled") else {
             return string // Return unencrypted if disabled
         }
         
-        guard let key = encryptionKey,
+        guard let key = _encryptionKey,
               let data = string.data(using: .utf8) else {
             return nil
         }
@@ -141,7 +162,7 @@ class EncryptionService {
     }
     
     func decrypt(_ encryptedString: String) -> String? {
-        guard let key = encryptionKey,
+        guard let key = _encryptionKey,
               let combinedData = Data(base64Encoded: encryptedString) else {
             return nil
         }
@@ -157,12 +178,11 @@ class EncryptionService {
     }
     
     func encryptData(_ data: Data) -> Data? {
-        // Check if encryption is enabled (direct UserDefaults access to avoid actor isolation issues)
         guard UserDefaults.standard.bool(forKey: "encryptionEnabled") else {
             return data // Return unencrypted if disabled
         }
         
-        guard let key = encryptionKey else { return nil }
+        guard let key = _encryptionKey else { return nil }
         
         do {
             let sealedBox = try AES.GCM.seal(data, using: key)
@@ -174,7 +194,12 @@ class EncryptionService {
     }
     
     func decryptData(_ encryptedData: Data) -> Data? {
-        guard let key = encryptionKey else { return nil }
+        // If encryption is disabled, try to return as-is
+        guard UserDefaults.standard.bool(forKey: "encryptionEnabled") else {
+            return encryptedData
+        }
+        
+        guard let key = _encryptionKey else { return nil }
         
         do {
             let sealedBox = try AES.GCM.SealedBox(combined: encryptedData)

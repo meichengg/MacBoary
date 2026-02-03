@@ -114,9 +114,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.showEncryptionOptIn { encryptionEnabled in
                     
-                    // Step 2: Test Keychain access if encryption is enabled
+                    // Step 2: Show password prompt if encryption is enabled
                     if encryptionEnabled {
-                        self.testKeychainAccess {
+                        self.showPasswordPrompt {
                              self.checkAccessibilityBlocking()
                         }
                     } else {
@@ -124,8 +124,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             }
+        } else if SettingsManager.shared.encryptionEnabled && EncryptionService.shared.isConfigured && !EncryptionService.shared.isUnlocked {
+            // Encryption enabled but not unlocked - show password prompt
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.showPasswordPrompt {
+                    self.checkAccessibilityBlocking()
+                }
+            }
         } else {
-            // Not first launch
+            // Not first launch and no password needed
             checkAccessibilityBlocking()
         }
     }
@@ -197,38 +204,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: settings.localized("encrypt_opt_in_disable"))
         
         let response = alert.runModal()
-        // Determine enabling based on response
         let enabled = (response == .alertFirstButtonReturn)
         
-        // Update setting - this might trigger Keychain access via EncryptionService due to didSet if enabled is true
-        // But we want to control that.
-        // If we set it here, EncryptionService will see it true.
         SettingsManager.shared.encryptionEnabled = enabled
         
         completion(enabled)
     }
     
+    private var passwordWindow: NSWindow?
+    
     @MainActor
-    private func testKeychainAccess(completion: @escaping () -> Void) {
-        // Test Keychain access by attempting to access the encryption key
-        DispatchQueue.global(qos: .userInitiated).async {
-            let hasAccess = EncryptionService.shared.hasKeychainAccess()
-            
-            DispatchQueue.main.async {
-                if !hasAccess {
-                    // Disable encryption if we can't access keychain
+    private func showPasswordPrompt(completion: @escaping () -> Void) {
+        let isConfigured = EncryptionService.shared.isConfigured
+        
+        let passwordView = PasswordPromptView(
+            isSettingPassword: !isConfigured,
+            onSuccess: { [weak self] in
+                self?.passwordWindow?.close()
+                self?.passwordWindow = nil
+                completion()
+            },
+            onCancel: { [weak self] in
+                self?.passwordWindow?.close()
+                self?.passwordWindow = nil
+                // User cancelled password setup - disable encryption
+                if !isConfigured {
                     SettingsManager.shared.encryptionEnabled = false
-                    
-                    let settings = SettingsManager.shared
-                    let alert = NSAlert()
-                    alert.messageText = settings.localized("keychain_access_title")
-                    alert.informativeText = settings.localized("keychain_access_message")
-                    alert.alertStyle = .warning
-                    alert.addButton(withTitle: "OK")
-                    alert.runModal()
                 }
                 completion()
             }
-        }
+        )
+        
+        let hostingController = NSHostingController(rootView: passwordView)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = isConfigured ? "Unlock MacBoary" : "Set Password"
+        window.styleMask = [.titled, .closable]
+        window.setContentSize(NSSize(width: 320, height: 200))
+        window.center()
+        window.level = .floating
+        
+        passwordWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 }

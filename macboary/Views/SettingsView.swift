@@ -12,6 +12,8 @@ import AppKit
 struct SettingsView: View {
     @ObservedObject var settingsManager = SettingsManager.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var showPasswordSheet = false
+    @State private var showChangePasswordSheet = false
     
     var body: some View {
         Form {
@@ -115,13 +117,38 @@ struct SettingsView: View {
                     Text(settingsManager.localized("forever")).tag(-1)
                 }
                 
-                Toggle(isOn: $settingsManager.encryptionEnabled) {
+                
+                Toggle(isOn: Binding(
+                    get: { settingsManager.encryptionEnabled },
+                    set: { newValue in
+                        if newValue {
+                            // Turning ON - show password setup
+                            showPasswordSheet = true
+                        } else {
+                            // Turning OFF - remove password and disable
+                            EncryptionService.shared.removePassword()
+                            settingsManager.encryptionEnabled = false
+                        }
+                    }
+                )) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(settingsManager.localized("encrypt_clipboard"))
                         Text(settingsManager.localized("encrypt_clipboard_desc"))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                }
+                .sheet(isPresented: $showPasswordSheet) {
+                    PasswordPromptView(
+                        isSettingPassword: !EncryptionService.shared.isConfigured,
+                        onSuccess: {
+                            settingsManager.encryptionEnabled = true
+                            showPasswordSheet = false
+                        },
+                        onCancel: {
+                            showPasswordSheet = false
+                        }
+                    )
                 }
             } header: {
                 Label(settingsManager.localized("storage"), systemImage: "clock")
@@ -160,34 +187,43 @@ struct SettingsView: View {
             }
             
             Section {
-                // Keychain Access (only show if encryption is enabled)
-                if settingsManager.encryptionEnabled {
+                // Import/Export (always visible)
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Data Backup")
+                        Text("Export or import your clipboard history.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button("Export") {
+                        exportData()
+                    }
+                    Button("Import") {
+                        importData()
+                    }
+                }
+                
+                // Change Password (only if encryption is enabled and configured)
+                if settingsManager.encryptionEnabled && EncryptionService.shared.isConfigured {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(settingsManager.localized("keychain_access"))
-
-                            Text(settingsManager.localized("keychain_desc"))
+                            Text("Change Password")
+                            Text("Update your encryption password.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
-                        if EncryptionService.shared.hasKeychainAccess() {
-                            HStack(spacing: 4) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                Text(settingsManager.localized("granted"))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        } else {
-                            HStack(spacing: 4) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.red)
-                                Text(settingsManager.localized("denied"))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                        Button("Change") {
+                            showChangePasswordSheet = true
                         }
+                    }
+                    .sheet(isPresented: $showChangePasswordSheet) {
+                        PasswordPromptView(isSettingPassword: true, onSuccess: {
+                            showChangePasswordSheet = false
+                        }, onCancel: {
+                            showChangePasswordSheet = false
+                        })
                     }
                 }
                 
@@ -283,6 +319,76 @@ struct SettingsView: View {
                 if let bundle = Bundle(url: url), let bundleId = bundle.bundleIdentifier {
                     settingsManager.addBlacklistedApp(bundleId: bundleId)
                 }
+            }
+        }
+    }
+    
+    private func exportData() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.data]
+        panel.nameFieldStringValue = "macboary_backup.enc"
+        panel.message = "Choose where to save your clipboard history backup."
+        
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            
+            if let exportedData = ClipboardManager.shared.exportData() {
+                do {
+                    try exportedData.write(to: url)
+                    
+                    let alert = NSAlert()
+                    alert.messageText = "Export Successful"
+                    alert.informativeText = "Your clipboard history has been exported."
+                    alert.alertStyle = .informational
+                    alert.runModal()
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = "Export Failed"
+                    alert.informativeText = error.localizedDescription
+                    alert.alertStyle = .critical
+                    alert.runModal()
+                }
+            } else {
+                let alert = NSAlert()
+                alert.messageText = "Export Failed"
+                alert.informativeText = "Could not export data. Make sure encryption is unlocked."
+                alert.alertStyle = .critical
+                alert.runModal()
+            }
+        }
+    }
+    
+    private func importData() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.data]
+        panel.allowsMultipleSelection = false
+        panel.message = "Select a MacBoary backup file to import."
+        
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            
+            do {
+                let importedData = try Data(contentsOf: url)
+                
+                if ClipboardManager.shared.importData(importedData) {
+                    let alert = NSAlert()
+                    alert.messageText = "Import Successful"
+                    alert.informativeText = "Your clipboard history has been restored."
+                    alert.alertStyle = .informational
+                    alert.runModal()
+                } else {
+                    let alert = NSAlert()
+                    alert.messageText = "Import Failed"
+                    alert.informativeText = "Could not decrypt the backup. Make sure you're using the same password that was used to create the backup."
+                    alert.alertStyle = .critical
+                    alert.runModal()
+                }
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Import Failed"
+                alert.informativeText = error.localizedDescription
+                alert.alertStyle = .critical
+                alert.runModal()
             }
         }
     }
