@@ -623,6 +623,4 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
 }
 
 // Helper for Swift 6 Concurrency
-struct SendableEvent: @unchecked Sendable {
-    let event: NSEvent
-}
+
