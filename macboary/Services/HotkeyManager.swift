@@ -73,6 +73,9 @@ class HotkeyManager: ObservableObject {
         CGEvent.tapEnable(tap: tap, enable: true)
         // Monitor app focus change for cleanup
         NotificationCenter.default.addObserver(self, selector: #selector(handleAppResignActive), name: NSApplication.didResignActiveNotification, object: nil)
+        
+        // Register backup Carbon Hotkey (for Secure Input fields where EventTap is blocked)
+        registerCarbonHotkey(keyCode: Int(shortcut.keyCode), modifiers: shortcut.modifiers)
     }
     
     @objc private func handleAppResignActive() {
@@ -84,6 +87,8 @@ class HotkeyManager: ObservableObject {
     }
     
     func unregister() {
+        unregisterCarbonHotkey()
+        
         if let runLoopSource = runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
             self.runLoopSource = nil
@@ -216,5 +221,56 @@ class HotkeyManager: ObservableObject {
         }
         
         print("✅ Masked Reset Complete.")
+    }
+    
+    // MARK: - Carbon Fallback (For Secure Input)
+    private var hotKeyRef: EventHotKeyRef?
+    private var eventHandlerRef: EventHandlerRef?
+    
+    private func registerCarbonHotkey(keyCode: Int, modifiers: UInt32) {
+        var hotKeyID = EventHotKeyID()
+        hotKeyID.signature = OSType(1296122709) // 'MBOA'
+        hotKeyID.id = 1
+        
+        var eventType = EventTypeSpec()
+        eventType.eventClass = OSType(kEventClassKeyboard)
+        eventType.eventKind = OSType(kEventHotKeyPressed)
+        
+        // Install Handler
+        let handler: EventHandlerUPP = { _, _, userData in
+            guard let userData = userData else { return noErr }
+            let manager = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
+            
+            // Only trigger if we are in Secure Input mode (otherwise Tap handles it)
+            // Actually, if Tap is working, it swallows the event, so this shouldn't fire?
+            // But just in case, we can check.
+            // For now, let's assume if this fires, the Tap missed it.
+            
+            print("🔑 Carbon Hotkey Fired (Backup)")
+            Task { @MainActor in
+                manager.callback?()
+            }
+            
+            return noErr
+        }
+        
+        InstallEventHandler(GetApplicationEventTarget(), handler, 1, &eventType, UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()), &eventHandlerRef)
+        
+        // Register Hotkey
+        let status = RegisterEventHotKey(UInt32(keyCode), modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
+        if status != noErr {
+            print("⚠️ Failed to register Carbon Hotkey: \(status)")
+        }
+    }
+    
+    private func unregisterCarbonHotkey() {
+        if let hotKeyRef = hotKeyRef {
+            UnregisterEventHotKey(hotKeyRef)
+            self.hotKeyRef = nil
+        }
+        if let eventHandlerRef = eventHandlerRef {
+            RemoveEventHandler(eventHandlerRef)
+            self.eventHandlerRef = nil
+        }
     }
 }
