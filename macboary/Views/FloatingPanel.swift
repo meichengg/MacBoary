@@ -39,6 +39,30 @@ class FloatingPanel: NSPanel {
     // Allow the panel to become key without activating the app
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    
+    // PER USER REQUEST:
+    // 1. Normal state: Window is movable by background (drag anywhere).
+    // 2. Cmd held: Window is NOT movable (drag items).
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown {
+            if event.modifierFlags.contains(.command) {
+                self.isMovableByWindowBackground = false
+            } else {
+                self.isMovableByWindowBackground = true
+            }
+        }
+        super.sendEvent(event)
+    }
+    
+    // Update movability immediately when modifiers change
+    override func flagsChanged(with event: NSEvent) {
+        if event.modifierFlags.contains(.command) {
+            self.isMovableByWindowBackground = false
+        } else {
+            self.isMovableByWindowBackground = true
+        }
+        super.flagsChanged(with: event)
+    }
 }
 
 // Separate observable class for selection and search state
@@ -280,15 +304,10 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
     
     @MainActor func showPanel() {
         // Don't show panel if app is not ready (setup in progress)
-        if !isReady {
-            print("App not ready yet, supressing showPanel")
-            return
-        }
+        if !isReady { return }
 
         // Don't show panel while permission request is in progress
-        if PermissionManager.shared.isRequestingPermission {
-            return
-        }
+        if PermissionManager.shared.isRequestingPermission { return }
         
         // Store the currently active app before showing panel
         previousApp = NSWorkspace.shared.frontmostApplication
@@ -432,18 +451,17 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self, self.isVisible else { return event }
             
+            // Only capture keys if FloatingPanel is the Key Window
+            if let panel = self.panel, !panel.isKeyWindow {
+                return event
+            }
+            
             // If an alert/sheet is attached (e.g. Delete Confirmation), let it handle the keys (Enter/Esc)
             if self.panel?.attachedSheet != nil { return event }
             
-            // Local monitor always runs on main thread, but compiler doesn't know event is safe to capture
-            let sendableEvent = SendableEvent(event: event)
-            
-            return MainActor.assumeIsolated {
-                self.handleKeyDown(sendableEvent.event)
-            }
+            return self.handleKeyDown(event)
         }
-            
-        }
+    }
 
 
     @MainActor
@@ -456,6 +474,11 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
         
         switch event.keyCode {
         case 53: // Escape
+            // If preview is open, close it first (don't hide panel)
+            if ZoomWindowController.shared.window?.isVisible == true {
+                ZoomWindowController.shared.close()
+                return nil
+            }
             self.hidePanel()
             return nil // Consume event
             
@@ -497,6 +520,27 @@ class FloatingPanelController: NSObject, NSWindowDelegate {
                     self.viewModel.selectionIndex < self.viewModel.displayedLimit {
                     self.togglePin(filtered[self.viewModel.selectionIndex])
                     return nil
+                }
+            }
+            return event
+            
+        case 49: // Shift+Space for image preview
+            if event.modifierFlags.contains(.shift) {
+                // Toggle image preview
+                if ZoomWindowController.shared.window?.isVisible == true {
+                    ZoomWindowController.shared.close()
+                    return nil
+                }
+                
+                // Open preview if selected item is an image
+                if self.viewModel.selectionIndex >= 0 &&
+                   self.viewModel.selectionIndex < filtered.count &&
+                   self.viewModel.selectionIndex < self.viewModel.displayedLimit {
+                    let item = filtered[self.viewModel.selectionIndex]
+                    if item.type == .image, let path = item.imagePath {
+                        ZoomWindowController.shared.show(imagePath: path)
+                        return nil
+                    }
                 }
             }
             return event

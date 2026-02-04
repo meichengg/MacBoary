@@ -9,6 +9,7 @@ import Foundation
 import AppKit
 import Combine
 import ImageIO
+import CoreImage
 
 @MainActor
 class ClipboardManager: ObservableObject {
@@ -20,6 +21,9 @@ class ClipboardManager: ObservableObject {
     private var cleanupTimer: Timer?
     private var lastChangeCount: Int = 0
     private let storageKey = "clipboardHistory"
+    
+    // Thumbnail cache to persist across panel open/close
+    private let thumbnailCache = NSCache<NSString, NSImage>()
     
     private var historyFileURL: URL {
         let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
@@ -41,7 +45,7 @@ class ClipboardManager: ObservableObject {
     
     // MARK: - Image Storage
     
-    private var imagesDirectory: URL {
+    var imagesDirectory: URL {
         let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
         guard let appSupport = urls.first else {
             // Fallback to temporary directory if application support is not available
@@ -57,21 +61,54 @@ class ClipboardManager: ObservableObject {
         let fileName = "\(UUID().uuidString).enc"
         let fileURL = imagesDirectory.appendingPathComponent(fileName)
         
-        guard let tiffData = image.tiffRepresentation,
-              let bitmapImage = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
+        // Smart Compression: HEIC (High Efficiency) vs PNG
+        var imageData: Data?
+        
+        if SettingsManager.shared.enableCompression {
+                // HEIC Conversion using CIContext
+            if let tiffData = image.tiffRepresentation, let ciImage = CIImage(data: tiffData) {
+                    let context = CIContext()
+                    // Create HEIC Data
+                    // Note: modern macOS supports HEIC via CGImageDestination or CIContext.
+                    // Fallback to simpler JPEG if HEIC is too complex to implement directly with NSBitmapImageRep in older SDKs.
+                    // Actually, NSBitmapImageRep doesn't directly support .heif in older swift versions properties keys.
+                    // Using .jpeg for now as "High Efficiency" fallback or try specific kUTTypeHEIC if available.
+                    // But user wanted HEIC. Let's try to use the correct `NSBitmapImageRep` approach if possible or `CIContext`.
+                    // `NSBitmapImageRep` supports .tiff, .bmp, .gif, .jpeg, .png, .jpeg2000. It does NOT support HEIC directly in `representation(using:)`.
+                    
+                    // START FIX: Use CIContext to write HEIC
+                    if let _ = try? context.writeHEIFRepresentation(of: ciImage, to: fileURL, format: .RGBA8, colorSpace: ciImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!) {
+                         // WRITE SUCCESS but we need DATA to encrypt.
+                         // CIContext writes to URL. We want Data.
+                         // context.heifRepresentation(of: ...) -> Data
+                         if let heicData = context.heifRepresentation(of: ciImage, format: .RGBA8, colorSpace: ciImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!, options: [:]) {
+                             imageData = heicData
+                         }
+                    }
+                }
+        }
+        
+        // Fallback to PNG if HEIC failed or disabled
+        if imageData == nil {
+            if let tiffData = image.tiffRepresentation,
+               let bitmapImage = NSBitmapImageRep(data: tiffData) {
+                imageData = bitmapImage.representation(using: .png, properties: [:])
+            }
+        }
+        
+        guard let finalData = imageData else {
             return nil
         }
         
         // Check image size limit (max 10MB to prevent memory issues)
         let maxImageSize = 10 * 1024 * 1024 // 10MB
-        if pngData.count > maxImageSize {
-            print("Image too large (\(pngData.count) bytes), skipping")
+        if finalData.count > maxImageSize {
+            print("Image too large (\(finalData.count) bytes), skipping")
             return nil
         }
         
         // Encrypt the image data
-        guard let encryptedData = EncryptionService.shared.encryptData(pngData) else {
+        guard let encryptedData = EncryptionService.shared.encryptData(finalData) else {
             print("Failed to encrypt image")
             return nil
         }
@@ -138,6 +175,16 @@ class ClipboardManager: ObservableObject {
         return NSImage(cgImage: cgImage, size: NSSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
     }
     
+    // MARK: - Thumbnail Cache
+    
+    func getCachedThumbnail(for path: String) -> NSImage? {
+        return thumbnailCache.object(forKey: path as NSString)
+    }
+    
+    func cacheThumbnail(_ image: NSImage, for path: String) {
+        thumbnailCache.setObject(image, forKey: path as NSString)
+    }
+    
     private func deleteImage(named name: String) {
         let fileURL = imagesDirectory.appendingPathComponent(name)
         try? FileManager.default.removeItem(at: fileURL)
@@ -153,13 +200,49 @@ class ClipboardManager: ObservableObject {
             }
         }
         
+        // Initial cleanup on launch
+        Task { @MainActor in
+            self.cleanupOldItems()
+            self.cleanupDragTempFiles()
+        }
+        
         // Periodic cleanup timer (every hour)
         cleanupTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.cleanupOldItems()
+                self?.cleanupDragTempFiles()
             }
         }
     }
+    
+    // Cleanup temporary files created for Drag & Drop
+    private func cleanupDragTempFiles() {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("MacBoaryDragTemp")
+        
+        // Check if exists
+        if FileManager.default.fileExists(atPath: tempDir.path) {
+            do {
+                // Get all files
+                let contents = try FileManager.default.contentsOfDirectory(at: tempDir, includingPropertiesForKeys: [.creationDateKey])
+                
+                // Delete files older than 1 hour (to avoid deleting file currently being dragged)
+                // Or just delete everything on app launch, and conservative cleanup periodically.
+                // Strategy: Delete files older than 5 minutes. Drag operation shouldn't take longer.
+                
+                let now = Date()
+                for file in contents {
+                    if let creation = try? file.resourceValues(forKeys: [.creationDateKey]).creationDate,
+                       now.timeIntervalSince(creation) > 300 { // 5 minutes
+                        try? FileManager.default.removeItem(at: file)
+                        print("🧹 Cleaned up temp drag file: \(file.lastPathComponent)")
+                    }
+                }
+            } catch {
+                print("⚠️ Failed to cleanup temp drag files: \(error)")
+            }
+        }
+    }
+
     
     func stopMonitoring() {
         timer?.invalidate()
@@ -404,16 +487,82 @@ class ClipboardManager: ObservableObject {
                     return true
                 }
                 return false
+
             }
             
+            // Delete associated images
             for item in itemsToDelete {
                 if let imagePath = item.imagePath {
                     self.deleteImage(named: imagePath)
                 }
             }
             
+            // Save if any changes
             if !itemsToDelete.isEmpty {
                 self.saveHistory()
+            }
+            
+            // Enforce Size Limit
+            self.enforceSizeLimit()
+        }
+    }
+    
+    private func enforceSizeLimit() {
+        // Calculate total size using FileManager
+        // (Implementation details similar to previous attempt)
+        let historySize = (try? FileManager.default.attributesOfItem(atPath: historyFileURL.path)[.size] as? Int64) ?? 0
+        
+        let urls = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+        guard let appSupport = urls.first else { return }
+        let imageDir = appSupport.appendingPathComponent("app.macboary/images")
+        
+        var imagesSize: Int64 = 0
+        if let contents = try? FileManager.default.contentsOfDirectory(at: imageDir, includingPropertiesForKeys: [.fileSizeKey]) {
+            for file in contents {
+                imagesSize += (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize.map(Int64.init) ?? 0) ?? 0
+            }
+        }
+        
+        let totalBytes = historySize + imagesSize
+        let limitBytes = Int64(SettingsManager.shared.maxHistorySizeGB * 1024 * 1024 * 1024)
+        
+        if totalBytes > limitBytes {
+            print("⚠️ Storage Limit Exceeded: \(ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)) > \(ByteCountFormatter.string(fromByteCount: limitBytes, countStyle: .file))")
+            
+            // Sort by date ascending (oldest first)
+            // Sort by date ascending (oldest first)
+            let sortedItems = items.sorted { (item1: ClipboardItem, item2: ClipboardItem) -> Bool in
+                return item1.timestamp < item2.timestamp
+            }
+            
+            var bytesDeleted: Int64 = 0
+            var itemsToDelete = [ClipboardItem]()
+            
+            for item in sortedItems {
+                if item.isPinned { continue }
+                
+                let itemSize: Int64 = 1000 // approx metadata
+                let imgSize: Int64 = item.imagePath != nil ? 500_000 : 0 // approx 500kb
+                
+                itemsToDelete.append(item)
+                bytesDeleted += (itemSize + imgSize)
+                
+                if (totalBytes - bytesDeleted) < (limitBytes - 10_000_000) {
+                    break
+                }
+            }
+            
+            if !itemsToDelete.isEmpty {
+                 for item in itemsToDelete {
+                     if let imagePath = item.imagePath {
+                         self.deleteImage(named: imagePath)
+                     }
+                 }
+                 self.items.removeAll { deletedItem in
+                     itemsToDelete.contains { $0.id == deletedItem.id }
+                 }
+                 self.saveHistory()
+                 print("🧹 Pruned \(itemsToDelete.count) items.")
             }
         }
     }
@@ -425,8 +574,21 @@ class ClipboardManager: ObservableObject {
             return
         }
         
+        var dataToEncrypt = encoded
+        
+        // Smart Compression: LZFSE (Fast, Efficient) for text-heavy DB
+        if SettingsManager.shared.enableCompression {
+            do {
+                let compressed = try (encoded as NSData).compressed(using: .lzfse) as Data
+                dataToEncrypt = compressed
+                print("📦 Database Compressed: \(encoded.count) -> \(compressed.count) bytes")
+            } catch {
+                print("⚠️ Compression failed, fallback to raw: \(error)")
+            }
+        }
+        
         // Encrypt the data before storing
-        guard let encryptedData = EncryptionService.shared.encryptData(encoded) else {
+        guard let encryptedData = EncryptionService.shared.encryptData(dataToEncrypt) else {
             NSLog("❌ CRITICAL: Failed to encrypt clipboard history. Data not saved. Check keychain access.")
             
             // Show user-facing error
@@ -466,10 +628,35 @@ class ClipboardManager: ObservableObject {
     private func loadHistory() {
         // Try to load from secure file storage first
         if let encryptedData = try? Data(contentsOf: historyFileURL),
-           let decryptedData = EncryptionService.shared.decryptData(encryptedData),
-           let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: decryptedData) {
-            items = decoded
-            return
+           let decryptedData = EncryptionService.shared.decryptData(encryptedData) {
+            
+            // Attempt LZFSE Decompression (New Format)
+            var jsonToDecode = decryptedData
+            if SettingsManager.shared.enableCompression {
+                do {
+                    // Try to decompress. If data is not compressed LZFSE, this might throw or return garbage.
+                    // However, NSData.decompressed(using:) usually throws if header invalid.
+                    let decompressed = try (decryptedData as NSData).decompressed(using: .lzfse) as Data
+                    jsonToDecode = decompressed
+                    print("📦 Database Decompressed: \(decryptedData.count) -> \(decompressed.count) bytes")
+                } catch {
+                    // Not compressed or legacy format? Keep raw decrypted data.
+                    // print("⚠️ Decompression failed (might be legacy uncompressed data): \(error)")
+                }
+            }
+            
+            if let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: jsonToDecode) {
+                items = decoded
+                return
+            } else {
+                // If decompression passed but decode failed (or decompression skipped), 
+                // try decoding the original decrypted data (Legacy Fallback)
+                if let legacyDecoded = try? JSONDecoder().decode([ClipboardItem].self, from: decryptedData) {
+                    print("🔄 Loaded Legacy Uncompressed Database")
+                    items = legacyDecoded
+                    return
+                }
+            }
         }
         
         // Fallback to UserDefaults for migration (old format)
@@ -510,23 +697,96 @@ class ClipboardManager: ObservableObject {
         }
     }
     
+    // MARK: - Password Change Re-encryption
+    
+    /// Re-encrypt all data when password changes
+    /// Call this BEFORE changing the password while old key is still active
+    /// Returns decrypted image data keyed by path
+    func prepareForPasswordChange() -> [String: Data] {
+        var decryptedImages: [String: Data] = [:]
+        
+        // Decrypt all images with current key
+        for item in items {
+            if let path = item.imagePath {
+                let fileURL = imagesDirectory.appendingPathComponent(path)
+                if let encryptedData = try? Data(contentsOf: fileURL),
+                   let decryptedData = EncryptionService.shared.decryptData(encryptedData) {
+                    decryptedImages[path] = decryptedData
+                }
+            }
+        }
+        
+        return decryptedImages
+    }
+    
+    /// Complete password change by re-encrypting all data with new key
+    /// Call this AFTER password has been changed to new key
+    func completePasswordChange(decryptedImages: [String: Data]) {
+        // Re-encrypt and save all images with new key
+        for (path, imageData) in decryptedImages {
+            let fileURL = imagesDirectory.appendingPathComponent(path)
+            if let encryptedData = EncryptionService.shared.encryptData(imageData) {
+                try? encryptedData.write(to: fileURL)
+            }
+        }
+        
+        // Re-save history with new key
+        saveHistory()
+    }
+    
     // MARK: - Import/Export
     
+    /// Export package structure: items + images data
+    private struct ExportPackage: Codable {
+        let items: [ClipboardItem]
+        let images: [String: Data] // imagePath -> raw PNG data
+    }
+    
     /// Export data as encrypted blob for backup/transfer
+    /// Images are decrypted and included so backup works across password changes
     func exportData() -> Data? {
-        // Encode items to JSON
-        guard let jsonData = try? JSONEncoder().encode(items) else {
-            print("❌ Failed to encode items for export")
+        // Collect image data (decrypted)
+        var imagesData: [String: Data] = [:]
+        for item in items {
+            if let path = item.imagePath {
+                // Try to get decrypted image data
+                let fileURL = imagesDirectory.appendingPathComponent(path)
+                if let encryptedData = try? Data(contentsOf: fileURL),
+                   let decryptedData = EncryptionService.shared.decryptData(encryptedData) {
+                    imagesData[path] = decryptedData
+                }
+            }
+        }
+        
+        // Create export package
+        let package = ExportPackage(items: items, images: imagesData)
+        
+        // Encode to JSON
+        guard let jsonData = try? JSONEncoder().encode(package) else {
+            print("❌ Failed to encode export package")
             return nil
         }
         
+        var dataToEncrypt = jsonData
+        
+        // Smart Compression for Export
+        if SettingsManager.shared.enableCompression {
+            do {
+                let compressed = try (jsonData as NSData).compressed(using: .lzfse) as Data
+                dataToEncrypt = compressed
+                print("📦 Export Compressed: \(jsonData.count) -> \(compressed.count) bytes")
+            } catch {
+                print("⚠️ Export Compression failed: \(error)")
+            }
+        }
+        
         // Encrypt with current password
-        guard let encrypted = EncryptionService.shared.encryptData(jsonData) else {
+        guard let encrypted = EncryptionService.shared.encryptData(dataToEncrypt) else {
             print("❌ Failed to encrypt data for export")
             return nil
         }
         
-        // Create export package: salt + verifier + encrypted data
+        // Create export file: salt + verifier + encrypted data
         var exportPackage = Data()
         
         // Include salt and verifier so import can use same password
@@ -541,7 +801,7 @@ class ClipboardManager: ObservableObject {
             exportPackage.append(Data(bytes: &verifierLen, count: 4))
             exportPackage.append(verifier)
         } else {
-            // No encryption configured, just export raw encrypted (or plain) data
+            // No encryption configured
             var zero: UInt32 = 0
             exportPackage.append(Data(bytes: &zero, count: 4))
             exportPackage.append(Data(bytes: &zero, count: 4))
@@ -551,8 +811,8 @@ class ClipboardManager: ObservableObject {
         return exportPackage
     }
     
-    /// Import data from backup, requires same password
-    func importData(_ data: Data) -> Bool {
+    /// Import data from backup, requires the password used during export
+    func importData(_ data: Data, password: String) -> Bool {
         guard data.count > 8 else { return false }
         
         var offset = 0
@@ -561,22 +821,20 @@ class ClipboardManager: ObservableObject {
         let saltLen = data.subdata(in: offset..<(offset+4)).withUnsafeBytes { $0.load(as: UInt32.self) }
         offset += 4
         
+        var importedSalt: Data?
+        
         if saltLen > 0 {
             // Read salt
             let salt = data.subdata(in: offset..<(offset+Int(saltLen)))
             offset += Int(saltLen)
+            importedSalt = salt
             
             // Read verifier length
             let verifierLen = data.subdata(in: offset..<(offset+4)).withUnsafeBytes { $0.load(as: UInt32.self) }
             offset += 4
             
-            // Read verifier
-            let verifier = data.subdata(in: offset..<(offset+Int(verifierLen)))
+            // Read verifier (skip it for now, we'll verify by successful decryption)
             offset += Int(verifierLen)
-            
-            // Store imported salt and verifier (will be used if passwords match)
-            UserDefaults.standard.set(salt, forKey: "com.macboary.encryption.salt")
-            UserDefaults.standard.set(verifier, forKey: "com.macboary.encryption.verifier")
         } else {
             offset += 4 // Skip verifier length
         }
@@ -584,20 +842,92 @@ class ClipboardManager: ObservableObject {
         // Remaining is encrypted data
         let encryptedData = data.subdata(in: offset..<data.count)
         
-        // Decrypt with current key
-        guard let decrypted = EncryptionService.shared.decryptData(encryptedData) else {
-            print("❌ Failed to decrypt imported data")
+        // Decrypt with provided password and imported salt
+        let decrypted: Data?
+        if let salt = importedSalt {
+            // Decrypt using the backup's salt + user-provided password
+            decrypted = EncryptionService.shared.decryptDataWithCredentials(
+                password: password,
+                salt: salt,
+                encryptedData: encryptedData
+            )
+        } else {
+            // No encryption in backup, try current key or treat as plain data
+            decrypted = EncryptionService.shared.decryptData(encryptedData)
+        }
+        
+        guard let decryptedData = decrypted else {
+            print("❌ Failed to decrypt imported data - wrong password?")
             return false
         }
         
-        // Decode items
-        guard let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: decrypted) else {
-            print("❌ Failed to decode imported items")
+        // Smart Decompression for Import
+        // Try LZFSE first (New format)
+        var jsonToDecode = decryptedData
+        if SettingsManager.shared.enableCompression {
+             do {
+                 let decompressed = try (decryptedData as NSData).decompressed(using: .lzfse) as Data
+                 jsonToDecode = decompressed
+                 print("📦 Import Decompressed: \(decryptedData.count) -> \(decompressed.count) bytes")
+             } catch {
+                 // Might be uncompressed legacy backup
+             }
+        }
+        
+        // Try to decode as new ExportPackage format (with images)
+        var decodedItems: [ClipboardItem] = []
+        var importedImages: [String: Data] = [:]
+        
+        if let package = try? JSONDecoder().decode(ExportPackage.self, from: jsonToDecode) {
+            decodedItems = package.items
+            importedImages = package.images
+        } else if let package = try? JSONDecoder().decode(ExportPackage.self, from: decryptedData) {
+            // Fallback: Try decoding raw decrypted data (if decompression skipped or failed but manual logic above missed it)
+            decodedItems = package.items
+            importedImages = package.images
+        } else {
+             // Fallback: Legacy format (Array of Items only)
+             if let items = try? JSONDecoder().decode([ClipboardItem].self, from: jsonToDecode) {
+                 decodedItems = items
+             } else if let items = try? JSONDecoder().decode([ClipboardItem].self, from: decryptedData) {
+                 decodedItems = items
+             }
+        }
+        
+        if decodedItems.isEmpty {
+            // Decoding failed for all formats
+            print("❌ Failed to decode imported data (or empty backup)")
             return false
         }
         
-        // Merge or replace
-        items = decoded
+        // MERGE: Add imported items that don't already exist (by ID)
+        let existingIDs = Set(items.map { $0.id })
+        let newItems = decodedItems.filter { !existingIDs.contains($0.id) }
+        
+        // Re-encrypt and save imported images with CURRENT key
+        for (imagePath, imageData) in importedImages {
+            // Only save if this image belongs to an item being imported
+            if newItems.contains(where: { $0.imagePath == imagePath }) {
+                let fileURL = imagesDirectory.appendingPathComponent(imagePath)
+                
+                // Encrypt with current key and save
+                if let encryptedData = EncryptionService.shared.encryptData(imageData) {
+                    try? encryptedData.write(to: fileURL)
+                }
+            }
+        }
+        
+        // Add new items to list
+        items.insert(contentsOf: newItems, at: 0)
+        
+        // Re-sort: pinned first, then by timestamp
+        items.sort { lhs, rhs in
+            if lhs.isPinned != rhs.isPinned {
+                return lhs.isPinned
+            }
+            return lhs.timestamp > rhs.timestamp
+        }
+        
         saveHistory()
         
         return true

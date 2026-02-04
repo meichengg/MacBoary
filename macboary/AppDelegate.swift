@@ -22,10 +22,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup menu bar
         menuBarController = MenuBarController()
         
-        // Always try to register hotkey (will work if permission is granted)
-        registerHotkey()
+        // Note: registerHotkey() is now ONLY called in finalizeLaunch() after password is entered
+        // This ensures hotkey doesn't work until app is fully ready
         
-        // Show permission requests in order: 1) Encryption, 2) Keychain, 3) Accessibility
+        // Show permission requests in order: Accessibility, then Encryption
         showPermissionsSequentially()
         
         // Listen for permission changes
@@ -105,36 +105,72 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Note: Do NOT show panel automatically on grant, let user open it via Hotkey or Dock
     }
     
-    // MARK: - Permission Sequence
     @MainActor
     private func showPermissionsSequentially() {
-        // Step 1: Show encryption opt-in dialog on first launch
-        // Using SettingManager constant for consistency
-        if UserDefaults.standard.object(forKey: SettingsManager.shared.encryptionEnabledKey) == nil {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.showEncryptionOptIn { encryptionEnabled in
-                    
-                    // Step 2: Show password prompt if encryption is enabled
-                    if encryptionEnabled {
-                        self.showPasswordPrompt {
-                             self.checkAccessibilityBlocking()
-                        }
-                    } else {
-                        self.checkAccessibilityBlocking()
+        // Step 1: Check accessibility first
+        if !PermissionManager.shared.hasAccessibilityPermission {
+             let alert = NSAlert()
+             alert.messageText = "Accessibility Permission Required"
+             alert.informativeText = "MacBoary needs Accessibility access to copy/paste. Please grant access in System Settings."
+             alert.alertStyle = .critical
+             alert.addButton(withTitle: "Open Settings")
+             alert.addButton(withTitle: "Quit")
+             
+             let response = alert.runModal()
+             if response == .alertFirstButtonReturn {
+                 PermissionManager.shared.openAccessibilityPreferences()
+                 
+                 // Poll for permission (using Task to avoid non-Sendable Timer capture)
+                 Task { @MainActor [weak self] in
+                     for _ in 0..<60 { // Try for 60 seconds
+                         if PermissionManager.shared.hasAccessibilityPermission {
+                             self?.handleEncryptionSetup()
+                             return
+                         }
+                         try? await Task.sleep(nanoseconds: 1_000_000_000)
+                     }
+                 }
+             } else {
+                 NSApp.terminate(nil)
+             }
+        } else {
+            handleEncryptionSetup()
+        }
+    }
+    
+    @MainActor
+    private func handleEncryptionSetup() {
+        let keyExists = UserDefaults.standard.object(forKey: SettingsManager.shared.encryptionEnabledKey) != nil
+        let encEnabled = SettingsManager.shared.encryptionEnabled
+        let isConf = EncryptionService.shared.isConfigured
+        let isUnlock = EncryptionService.shared.isUnlocked
+        
+        // Show encryption opt-in dialog on first launch
+        if !keyExists {
+            self.showEncryptionOptIn { encryptionEnabled in
+                if encryptionEnabled {
+                    self.showPasswordPrompt {
+                         self.finalizeLaunch()
                     }
+                } else {
+                    self.finalizeLaunch()
                 }
             }
-        } else if SettingsManager.shared.encryptionEnabled && EncryptionService.shared.isConfigured && !EncryptionService.shared.isUnlocked {
+        } else if encEnabled && isConf && !isUnlock {
             // Encryption enabled but not unlocked - show password prompt
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.showPasswordPrompt {
-                    self.checkAccessibilityBlocking()
-                }
+            self.showPasswordPrompt {
+                self.finalizeLaunch()
             }
         } else {
-            // Not first launch and no password needed
-            checkAccessibilityBlocking()
+            // No password needed
+            finalizeLaunch()
         }
+    }
+    
+    @MainActor
+    private func finalizeLaunch() {
+        FloatingPanelController.shared.setReady(true)
+        registerHotkey()
     }
     
     @MainActor
@@ -212,19 +248,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private var passwordWindow: NSWindow?
+    private var passwordCompletion: (() -> Void)?
     
     @MainActor
     private func showPasswordPrompt(completion: @escaping () -> Void) {
         let isConfigured = EncryptionService.shared.isConfigured
         
+        // Store completion for window close handling
+        self.passwordCompletion = completion
+        
         let passwordView = PasswordPromptView(
             isSettingPassword: !isConfigured,
             onSuccess: { [weak self] in
+                self?.passwordCompletion = nil
+                NSApp.stopModal()
                 self?.passwordWindow?.close()
                 self?.passwordWindow = nil
                 completion()
             },
             onCancel: { [weak self] in
+                self?.passwordCompletion = nil
+                NSApp.stopModal()
                 self?.passwordWindow?.close()
                 self?.passwordWindow = nil
                 // User cancelled password setup - disable encryption
@@ -238,13 +282,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let hostingController = NSHostingController(rootView: passwordView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = isConfigured ? "Unlock MacBoary" : "Set Password"
-        window.styleMask = [.titled, .closable]
+        window.styleMask = [.titled] // Remove closable to force button interaction
         window.setContentSize(NSSize(width: 320, height: 200))
         window.center()
-        window.level = .floating
+        window.level = .modalPanel
+        window.delegate = self
         
         passwordWindow = window
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        
+        // Run modal - this BLOCKS until stopModal() is called
+        NSApp.runModal(for: window)
+    }
+}
+
+// MARK: - NSWindowDelegate
+extension AppDelegate: NSWindowDelegate {
+    @MainActor
+    func windowWillClose(_ notification: Notification) {
+        guard let closingWindow = notification.object as? NSWindow,
+              closingWindow == passwordWindow else { return }
+        
+        // If passwordCompletion is still set, user closed via X button without clicking button
+        if let completion = passwordCompletion {
+            passwordCompletion = nil
+            passwordWindow = nil
+            // Treat as cancel - disable encryption if not configured
+            if !EncryptionService.shared.isConfigured {
+                SettingsManager.shared.encryptionEnabled = false
+            }
+            completion()
+        }
     }
 }

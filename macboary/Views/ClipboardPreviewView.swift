@@ -75,29 +75,7 @@ struct ClipboardPreviewView: View {
     }
     
     private func imagePreview(path: String?) -> some View {
-        VStack {
-            if let path = path, let image = NSImage(contentsOfFile: path) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                    )
-            } else {
-                VStack(spacing: 8) {
-                    Image(systemName: "photo")
-                        .font(.largeTitle)
-                    Text("Image not found")
-                        .font(.caption)
-                }
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, minHeight: 100)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(8)
-            }
-        }
+        ImagePreviewContent(imagePath: path)
     }
     
     private func filePreview(path: String?, name: String) -> some View {
@@ -201,3 +179,56 @@ struct ClipboardPreviewView: View {
     }
 }
 
+// Separate view for image preview with async loading
+private struct ImagePreviewContent: View {
+    let imagePath: String?
+    @State private var image: NSImage?
+    @State private var isLoading = true
+    
+    var body: some View {
+        VStack {
+            if let image = image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
+            } else if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 100)
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "photo")
+                        .font(.largeTitle)
+                    Text("Image not found")
+                        .font(.caption)
+                }
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 100)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(8)
+            }
+        }
+        .onAppear {
+            loadImage()
+        }
+        .onChange(of: imagePath) { _, _ in
+            loadImage()
+        }
+    }
+    
+    private func loadImage() {
+        isLoading = true
+        image = nil
+        
+        Task { @MainActor in
+            if let path = imagePath {
+                image = ClipboardManager.shared.getImage(named: path)
+            }
+            isLoading = false
+        }
+    }
+}

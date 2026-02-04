@@ -31,6 +31,46 @@ class PasteService {
             return
         }
         
+        // PRE-PASTE: Clear ALL modifier keys BEFORE hiding/activating (V17 Strategy)
+        // This prevents Cmd from being sent as Win key to RDP when quick paste (Cmd+1) is used
+        // We use the "Masked Reset" technique: Hold Ctrl while releasing others to prevent Windows Start Menu
+        let clearSource = CGEventSource(stateID: .hidSystemState)
+        let ctrlKey = CGKeyCode(kVK_Control)
+        let modifiers: [Int] = [kVK_Command, kVK_Shift, kVK_Option]
+        
+        // Check if target is RDP - needed for strategy selection
+        var isRDP = false
+        if let bundleId = self.targetAppBundleId, rdpClients.contains(bundleId) {
+            isRDP = true
+        }
+        
+        // 1. Inject Control DOWN (The Mask)
+        if let ctrlDown = CGEvent(keyboardEventSource: clearSource, virtualKey: ctrlKey, keyDown: true) {
+            ctrlDown.flags = .maskControl
+            ctrlDown.post(tap: .cghidEventTap)
+        }
+        
+        // 2. Release other modifiers (Command, Shift, Option)
+        for key in modifiers {
+            if let up = CGEvent(keyboardEventSource: clearSource, virtualKey: CGKeyCode(key), keyDown: false) {
+                up.flags = .maskControl // Keep Control flag active
+                up.post(tap: .cghidEventTap)
+            }
+        }
+        
+        // 3. Inject Control UP (The Unmask)
+        // CRITICAL FOR RDP: SKIP this step if target is RDP!
+        // We need to KEEP Control DOWN to mask the physical Cmd release that happens during focus switch.
+        // The Control key will be released in simulatePaste() after the operation completes.
+        if !isRDP {
+            if let ctrlUp = CGEvent(keyboardEventSource: clearSource, virtualKey: ctrlKey, keyDown: false) {
+                ctrlUp.flags = []
+                ctrlUp.post(tap: .cghidEventTap)
+            }
+        } else {
+            print("🛡️ RDP Target Detected: Holding Control DOWN to mask physical modifier release.")
+        }
+        
         // Hide MacBoary to restore focus to previous app
         NSApp.hide(nil)
         

@@ -87,6 +87,8 @@ class SettingsManager: ObservableObject {
     private let textRetentionDaysKey = "textRetentionDays"
     private let imageRetentionDaysKey = "imageRetentionDays"
     private let maxHistoryItemsKey = "maxHistoryItems"
+    private let maxHistorySizeGBKey = "maxHistorySizeGB"
+    private let enableCompressionKey = "enableCompression"
     private let blacklistedAppsKey = "blacklistedApps"
     let encryptionEnabledKey = "encryptionEnabled"  // Public for first-launch dialog
     
@@ -206,6 +208,18 @@ class SettingsManager: ObservableObject {
         }
     }
     
+    @Published var maxHistorySizeGB: Double {
+        didSet {
+            UserDefaults.standard.set(maxHistorySizeGB, forKey: maxHistorySizeGBKey)
+        }
+    }
+    
+    @Published var enableCompression: Bool {
+        didSet {
+            UserDefaults.standard.set(enableCompression, forKey: enableCompressionKey)
+        }
+    }
+    
     @Published var encryptionEnabled: Bool {
         didSet {
             UserDefaults.standard.set(encryptionEnabled, forKey: encryptionEnabledKey)
@@ -250,6 +264,8 @@ class SettingsManager: ObservableObject {
         self.textRetentionDays = UserDefaults.standard.object(forKey: textRetentionDaysKey) as? Int ?? 7
         self.imageRetentionDays = UserDefaults.standard.object(forKey: imageRetentionDaysKey) as? Int ?? 1
         self.maxHistoryItems = UserDefaults.standard.object(forKey: maxHistoryItemsKey) as? Int ?? 500
+        self.maxHistorySizeGB = UserDefaults.standard.object(forKey: maxHistorySizeGBKey) as? Double ?? 1.0
+        self.enableCompression = UserDefaults.standard.object(forKey: enableCompressionKey) as? Bool ?? true
         
         // Check if encryption preference has been set
         if UserDefaults.standard.object(forKey: encryptionEnabledKey) == nil {

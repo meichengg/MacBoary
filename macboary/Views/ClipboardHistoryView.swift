@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ClipboardHistoryView: View {
     @ObservedObject var clipboardManager = ClipboardManager.shared
@@ -92,7 +93,7 @@ struct ClipboardHistoryView: View {
                         // Auto focus when created
                         isSearchFocused = true
                     }
-                    .onChange(of: viewModel.shouldFocusSearch) { _ in
+                    .onChange(of: viewModel.shouldFocusSearch) { _, _ in
                         isSearchFocused = true
                     }
                 
@@ -185,7 +186,7 @@ struct ClipboardHistoryView: View {
                     .padding(.horizontal, 8)
                     .id(viewModel.displayedLimit) // Force re-render when limit changes
                 }
-                .onChange(of: viewModel.scrollToIndex) { newIndex in
+                .onChange(of: viewModel.scrollToIndex) { _, newIndex in
                     guard let newIndex = newIndex else { return }
                     // Scroll to item
                     if newIndex >= 0 && newIndex < filteredItems.count {
@@ -222,23 +223,7 @@ struct ClipboardHistoryView: View {
 }
 
 // Background blur effect
-struct VisualEffectView: NSViewRepresentable {
-    let material: NSVisualEffectView.Material
-    let blendingMode: NSVisualEffectView.BlendingMode
-    
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let visualEffectView = NSVisualEffectView()
-        visualEffectView.material = material
-        visualEffectView.blendingMode = blendingMode
-        visualEffectView.state = .active
-        return visualEffectView
-    }
-    
-    func updateNSView(_ visualEffectView: NSVisualEffectView, context: Context) {
-        visualEffectView.material = material
-        visualEffectView.blendingMode = blendingMode
-    }
-}
+// VisualEffectView moved to shared component
 
 struct ClipboardItemRow: View {
     @ObservedObject var settingsManager = SettingsManager.shared
@@ -385,21 +370,73 @@ struct ClipboardItemRow: View {
         .onHover { hovering in
             isHovered = hovering
         }
+        .onDrag {
+            // Drag Support - PER USER REQUEST: ONLY ALLOW DRAG WHEN CMD IS HELD
+            // This prevents accidental drags and requires explicit intent to drag to another window.
+            guard NSEvent.modifierFlags.contains(.command) else {
+                return NSItemProvider() // Return empty to prevent data transfer
+            }
+            
+            var provider = NSItemProvider()
+            
+            // Prefer File Path based provider for Web Uploads
+            if let path = item.imagePath ?? item.filePath {
+                // Construct absolute URL
+                let fileURL = URL(fileURLWithPath: ClipboardManager.shared.imagesDirectory.path).appendingPathComponent(path) // Wait, imagePath is filename? 
+                
+                // Let's resolve the full path correctly depending on type
+                let fullURL: URL
+                if item.type == .image, let imgName = item.imagePath {
+                     fullURL = ClipboardManager.shared.imagesDirectory.appendingPathComponent(imgName)
+                     // Check if file exists (it should) - we might need to handle the encrypted case?
+                     // Ah, wait. The raw file on disk is encrypted ("xxx.enc"). We cannot drag that directly to browser!
+                     // We must provide a TEMP decrypted file.
+                     
+                     if let image = ClipboardManager.shared.getImage(named: imgName) {
+                         // Write temporary file for drag to DEDICATED FOLDER
+                         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("MacBoaryDragTemp")
+                         
+                         // Create dir if needed
+                         try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+                         
+                         // Sanitize filename
+                         let safeName = item.displayText.prefix(50).replacingOccurrences(of: "/", with: "-")
+                         let tempURL = tempDir.appendingPathComponent("\(safeName).png") 
+                         
+                         // Check if already exists to save write time? No, overwrite to be safe/fresh.
+                         
+                         // Or prefer HEIC if enabled? Let's use PNG for broad compatibility or keep original format if possible.
+                         // Current logic loads as NSImage.
+                         
+                         if let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff), let pngData = bitmap.representation(using: .png, properties: [:]) {
+                               try? pngData.write(to: tempURL)
+                               provider = NSItemProvider(contentsOf: tempURL) ?? NSItemProvider()
+                         }
+                     }
+                } else if item.type == .file, let filePath = item.filePath {
+                     fullURL = URL(fileURLWithPath: filePath)
+                     provider = NSItemProvider(contentsOf: fullURL) ?? NSItemProvider()
+                } else {
+                     // Text
+                     provider.registerObject(item.content as NSString, visibility: .all)
+                }
+            } else {
+                 // Fallback Text
+                 provider.registerObject(item.content as NSString, visibility: .all)
+            }
+            
+            return provider
+        }
         .onAppear {
             if item.type == .image && thumbnail == nil {
                 if let path = item.imagePath {
-                     Task {
-                        // Offload I/O to detached task if getThumbnail is safe or ensure getThumbnail runs on correct actor
-                        // But getThumbnail in ClipboardManager is NOT isolated to non-main actor? 
-                        // Actually ClipboardManager is @MainActor, so calling it from background is tricky unless detached.
-                        
-                        // We need to fetch data. Let's do it carefully.
-                        // Since ClipboardManager is @MainActor, we should let it do the heavy lifting on a detached task IF it was designed so.
-                        // But getThumbnail is synchronous. We should move the heavy lifting inside getThumbnail to a detached task or similar?
-                        // Or just call it here. But we are on MainActor in .onAppear.
-                        // The previous code had DispatchQueue.global.
-                        
-                        // Better approach: Use Task.detached for the IO, accessing ONLY the path string (captured), then update MainActor.
+                    // Check cache first
+                    if let cached = ClipboardManager.shared.getCachedThumbnail(for: path) {
+                        thumbnail = cached
+                        return
+                    }
+                    
+                    Task {
                         let loadedCGImage = await Task.detached(priority: .userInitiated) { () -> CGImage? in
                             return ClipboardHelper.loadThumbnail(path: path)
                         }.value
@@ -407,12 +444,14 @@ struct ClipboardItemRow: View {
                         if let cgImg = loadedCGImage {
                             await MainActor.run {
                                 let nsImage = NSImage(cgImage: cgImg, size: NSSize(width: CGFloat(cgImg.width), height: CGFloat(cgImg.height)))
+                                // Cache the thumbnail
+                                ClipboardManager.shared.cacheThumbnail(nsImage, for: path)
                                 withAnimation {
                                     self.thumbnail = nsImage
                                 }
                             }
                         }
-                     }
+                    }
                 }
             }
         }

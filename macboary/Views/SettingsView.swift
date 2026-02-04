@@ -14,6 +14,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showPasswordSheet = false
     @State private var showChangePasswordSheet = false
+    @State private var pendingPasswordChangeData: [String: Data]?
     
     var body: some View {
         Form {
@@ -95,6 +96,34 @@ struct SettingsView: View {
                     Text("200").tag(200)
                     Text("500").tag(500)
                     Text("1000").tag(1000)
+                    Text("2000").tag(2000)
+                    Text("5000").tag(5000)
+                    Text("10000").tag(10000)
+                }
+                
+                VStack(alignment: .leading) {
+                    HStack {
+                        Text("Max History Size")
+                        Spacer()
+                        Text(String(format: "%.1f GB", settingsManager.maxHistorySizeGB))
+                            .foregroundColor(.secondary)
+                    }
+                    Slider(value: $settingsManager.maxHistorySizeGB, in: 0.1...30.0, step: 0.1) {
+                        Text("Size Limit")
+                    } minimumValueLabel: {
+                        Text("0.1GB").font(.caption)
+                    } maximumValueLabel: {
+                        Text("30GB").font(.caption)
+                    }
+                }
+                
+                Toggle(isOn: $settingsManager.enableCompression) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Smart Compression (HEIC/LZFSE)")
+                        Text("Compress database and images to save space without losing quality.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 Picker(settingsManager.localized("text_retention"), selection: $settingsManager.textRetentionDays) {
@@ -209,19 +238,27 @@ struct SettingsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Change Password")
-                            Text("Update your encryption password.")
+                            Text("Update your encryption password. Data will be re-encrypted.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                         Spacer()
                         Button("Change") {
+                            // Prepare for password change - decrypt all data with current key
+                            pendingPasswordChangeData = ClipboardManager.shared.prepareForPasswordChange()
                             showChangePasswordSheet = true
                         }
                     }
                     .sheet(isPresented: $showChangePasswordSheet) {
                         PasswordPromptView(isSettingPassword: true, onSuccess: {
+                            // Complete password change - re-encrypt all data with new key
+                            if let data = pendingPasswordChangeData {
+                                ClipboardManager.shared.completePasswordChange(decryptedImages: data)
+                                pendingPasswordChangeData = nil
+                            }
                             showChangePasswordSheet = false
                         }, onCancel: {
+                            pendingPasswordChangeData = nil
                             showChangePasswordSheet = false
                         })
                     }
@@ -370,16 +407,32 @@ struct SettingsView: View {
             do {
                 let importedData = try Data(contentsOf: url)
                 
-                if ClipboardManager.shared.importData(importedData) {
+                // Prompt for backup password
+                let passwordAlert = NSAlert()
+                passwordAlert.messageText = "Enter Backup Password"
+                passwordAlert.informativeText = "Enter the password that was used when this backup was created."
+                passwordAlert.addButton(withTitle: "Import")
+                passwordAlert.addButton(withTitle: "Cancel")
+                
+                let passwordField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+                passwordField.placeholderString = "Backup password"
+                passwordAlert.accessoryView = passwordField
+                
+                let passwordResponse = passwordAlert.runModal()
+                guard passwordResponse == .alertFirstButtonReturn else { return }
+                
+                let password = passwordField.stringValue
+                
+                if ClipboardManager.shared.importData(importedData, password: password) {
                     let alert = NSAlert()
                     alert.messageText = "Import Successful"
-                    alert.informativeText = "Your clipboard history has been restored."
+                    alert.informativeText = "Backup items have been merged with your current history. Note: Images from the backup may not display if passwords differ."
                     alert.alertStyle = .informational
                     alert.runModal()
                 } else {
                     let alert = NSAlert()
                     alert.messageText = "Import Failed"
-                    alert.informativeText = "Could not decrypt the backup. Make sure you're using the same password that was used to create the backup."
+                    alert.informativeText = "Could not decrypt the backup. Make sure you entered the correct password that was used to create this backup."
                     alert.alertStyle = .critical
                     alert.runModal()
                 }

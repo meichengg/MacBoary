@@ -177,6 +177,19 @@ class EncryptionService {
         }
     }
     
+    /// Decrypt data using a specific password and salt (for import with backup's credentials)
+    func decryptDataWithCredentials(password: String, salt: Data, encryptedData: Data) -> Data? {
+        guard let key = deriveKey(from: password, salt: salt) else { return nil }
+        
+        do {
+            let sealedBox = try AES.GCM.SealedBox(combined: encryptedData)
+            return try AES.GCM.open(sealedBox, using: key)
+        } catch {
+            print("Decryption with credentials error: \(error)")
+            return nil
+        }
+    }
+    
     func encryptData(_ data: Data) -> Data? {
         guard UserDefaults.standard.bool(forKey: "encryptionEnabled") else {
             return data // Return unencrypted if disabled
@@ -194,19 +207,44 @@ class EncryptionService {
     }
     
     func decryptData(_ encryptedData: Data) -> Data? {
-        // If encryption is disabled, try to return as-is
+        // If encryption is disabled, return as-is
         guard UserDefaults.standard.bool(forKey: "encryptionEnabled") else {
             return encryptedData
         }
         
-        guard let key = _encryptionKey else { return nil }
-        
-        do {
-            let sealedBox = try AES.GCM.SealedBox(combined: encryptedData)
-            return try AES.GCM.open(sealedBox, using: key)
-        } catch {
-            print("Data decryption error: \(error)")
-            return nil
+        // If we have a key, try to decrypt
+        if let key = _encryptionKey {
+            do {
+                let sealedBox = try AES.GCM.SealedBox(combined: encryptedData)
+                return try AES.GCM.open(sealedBox, using: key)
+            } catch {
+                // Decryption failed - might be unencrypted data from before encryption was enabled
+                // Try to return as-is if it looks like valid image data
+                if encryptedData.count > 4 {
+                    // Check for common image magic bytes
+                    let header = encryptedData.prefix(4)
+                    // PNG: 89 50 4E 47, JPEG: FF D8 FF, GIF: 47 49 46, TIFF: 49 49/4D 4D
+                    if header.starts(with: [0x89, 0x50, 0x4E, 0x47]) || // PNG
+                       header.starts(with: [0xFF, 0xD8, 0xFF]) || // JPEG
+                       header.starts(with: [0x47, 0x49, 0x46]) { // GIF
+                        return encryptedData
+                    }
+                }
+                print("Data decryption error: \(error)")
+                return nil
+            }
         }
+        
+        // No key available - check if this is unencrypted image data
+        if encryptedData.count > 4 {
+            let header = encryptedData.prefix(4)
+            if header.starts(with: [0x89, 0x50, 0x4E, 0x47]) || // PNG
+               header.starts(with: [0xFF, 0xD8, 0xFF]) || // JPEG
+               header.starts(with: [0x47, 0x49, 0x46]) { // GIF
+                return encryptedData
+            }
+        }
+        
+        return nil
     }
 }
